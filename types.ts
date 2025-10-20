@@ -243,6 +243,7 @@ export interface NavLink {
     linkType: 'internal' | 'external' | 'product' | 'category';
     link: string;
     displayThemes?: { [key in Theme]?: boolean };
+    icon?: 'phone' | 'mail' | 'cart' | 'arrowRight' | 'none';
 }
 
 export interface FooterColumn {

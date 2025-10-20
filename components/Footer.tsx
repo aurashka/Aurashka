@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { ContactInfo, SocialLink, FooterSettings, NavLink, FooterColumn } from '../types';
 import { 
     FacebookIcon, InstagramIcon, TwitterIcon, YoutubeIcon, PinterestIcon, LinkedinIcon,
-    PhoneIcon, MailIcon, MapPinIcon
+    PhoneIcon, MailIcon, MapPinIcon, CartIcon, ArrowRightIcon
 } from './Icons';
 import LazyImage from './LazyImage';
 
@@ -25,6 +25,16 @@ const SocialIconComponent: React.FC<{ platform: SocialLink['platform'], classNam
         case 'youtube': return <YoutubeIcon className={className} />;
         case 'pinterest': return <PinterestIcon className={className} />;
         case 'linkedin': return <LinkedinIcon className={className} />;
+        default: return null;
+    }
+};
+
+const NavLinkIcon: React.FC<{ icon: NavLink['icon'], className?: string }> = ({ icon, className }) => {
+    switch (icon) {
+        case 'phone': return <PhoneIcon className={className} />;
+        case 'mail': return <MailIcon className={className} />;
+        case 'cart': return <CartIcon className={className} />;
+        case 'arrowRight': return <ArrowRightIcon className={className} />;
         default: return null;
     }
 };
@@ -191,8 +201,9 @@ const Footer: React.FC = () => {
                 <ul className="mt-4 space-y-2">
                     {getVisibleLinks(col.links).map(link => (
                          <li key={link.id}>
-                            <a href={link.link} onClick={(e) => handleLinkClick(e, link)} className="text-sm text-brand-bg/70 hover:text-brand-bg">
-                                {link.text}
+                            <a href={link.link} onClick={(e) => handleLinkClick(e, link)} className="text-sm text-brand-bg/70 hover:text-brand-bg flex items-center gap-2">
+                                {link.icon && link.icon !== 'none' && <NavLinkIcon icon={link.icon} className="w-4 h-4" />}
+                                <span>{link.text}</span>
                             </a>
                         </li>
                     ))}

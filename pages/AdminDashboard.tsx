@@ -1633,21 +1633,84 @@ const ThemeSettingsManager: FC = () => {
                     </div>
                 </CollapsibleSection>
 
-                 <CollapsibleSection title="Footer Settings">
+                <CollapsibleSection title="Footer Settings">
                     <div className="max-w-3xl space-y-4">
-                       <div><label className="block text-sm font-medium text-gray-700">Footer Description</label><textarea value={settings.footer?.description || ''} onChange={e => handleSettingsChange('footer.description', e.target.value)} className={inputStyle} rows={2}/></div>
-                       <div><label className="block text-sm font-medium text-gray-700">Copyright Text</label><input type="text" value={settings.footer?.copyrightText || ''} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder={`© ${new Date().getFullYear()} ${settings.siteTitle}. All rights reserved.`} className={inputStyle}/></div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Footer Description</label>
+                            <textarea value={settings.footer?.description || ''} onChange={e => handleSettingsChange('footer.description', e.target.value)} className={inputStyle} rows={2}/>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Copyright Text</label>
+                            <input type="text" value={settings.footer?.copyrightText || ''} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder={`© ${new Date().getFullYear()} ${settings.siteTitle}. All rights reserved.`} className={inputStyle}/>
+                        </div>
+                        
                         <div className="p-4 border rounded-lg space-y-3">
-                            <h3 className="text-lg font-semibold">Newsletter Subscription</h3>
-                             <div><label className="block text-sm font-medium">Recipient Email</label><input type="email" value={settings.footer?.newsletter?.recipientEmail || ''} onChange={e => handleSettingsChange('footer.newsletter.recipientEmail', e.target.value)} placeholder="your-email@example.com" className={inputStyle}/><p className="text-xs text-gray-500 mt-1">The email address that receives subscription notifications.</p></div>
-                             <div><label className="block text-sm font-medium">Email Subject</label><input type="text" value={settings.footer?.newsletter?.emailSubject || ''} onChange={e => handleSettingsChange('footer.newsletter.emailSubject', e.target.value)} placeholder="New Subscriber!" className={inputStyle}/></div>
-                             {/* FIX: Wrapped string in JSX expression to prevent misparsing of '{{...}}' syntax as a shorthand property. */}
-                             <div><label className="block text-sm font-medium">Email Body Template</label><textarea value={settings.footer?.newsletter?.emailBodyTemplate || ''} onChange={e => handleSettingsChange('footer.newsletter.emailBodyTemplate', e.target.value)} className={inputStyle} rows={3}/><p className="text-xs text-gray-500 mt-1">{"Use `{{email}}` for the subscriber's email and `{{userDetails}}` for logged-in user info."}</p></div>
+                            <h3 className="text-lg font-semibold">Contact Info</h3>
+                            <div><label className="block text-sm font-medium">Phone</label><input type="text" value={settings.footer?.contactInfo?.phone || ''} onChange={e => handleSettingsChange('footer.contactInfo.phone', e.target.value)} className={inputStyle}/></div>
+                            <div><label className="block text-sm font-medium">Email</label><input type="email" value={settings.footer?.contactInfo?.email || ''} onChange={e => handleSettingsChange('footer.contactInfo.email', e.target.value)} className={inputStyle}/></div>
+                            <div><label className="block text-sm font-medium">Location</label><input type="text" value={settings.footer?.contactInfo?.location || ''} onChange={e => handleSettingsChange('footer.contactInfo.location', e.target.value)} className={inputStyle}/></div>
+                        </div>
+
+                        <div className="p-4 border rounded-lg space-y-3">
+                            <h3 className="text-lg font-semibold">Social Media</h3>
+                            <div>
+                                <label className="block text-sm font-medium">Icon Size (px)</label>
+                                <input type="number" value={settings.footer?.socialIconSize || 24} onChange={e => handleSettingsChange('footer.socialIconSize', Number(e.target.value))} className={inputStyle} style={{width: '100px'}}/>
+                            </div>
+                            {settings.footer?.socialLinks && Object.entries(settings.footer.socialLinks).map(([id, link]: [string, any]) => (
+                                <div key={id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                                    <select value={link.platform} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.platform`, e.target.value)} className={inputStyle}>
+                                        <option value="facebook">Facebook</option>
+                                        <option value="instagram">Instagram</option>
+                                        <option value="twitter">Twitter</option>
+                                        <option value="youtube">Youtube</option>
+                                        <option value="pinterest">Pinterest</option>
+                                        <option value="linkedin">Linkedin</option>
+                                    </select>
+                                    <input type="text" value={link.url} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.url`, e.target.value)} className={inputStyle} placeholder="https://..."/>
+                                    <button type="button" onClick={() => handleRemove(`footer.socialLinks.${id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => handleAdd('footer.socialLinks')} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Social Link</button>
+                        </div>
+
+                        <div className="p-4 border rounded-lg space-y-3">
+                            <h3 className="text-lg font-semibold">Footer Columns & Links</h3>
+                            {settings.footer?.columns && Object.entries(settings.footer.columns).map(([colId, col]: [string, any]) => (
+                                <div key={colId} className="border p-3 rounded-md space-y-2 bg-gray-50/50">
+                                    <div className="flex justify-between items-center">
+                                        <input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${colId}.title`, e.target.value)} className={`${inputStyle} font-semibold`} placeholder="Column Title"/>
+                                        <button type="button" onClick={() => handleRemove(`footer.columns.${colId}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
+                                    {col.links && Object.entries(col.links).map(([linkId, link]: [string, any]) => (
+                                        <div key={linkId} className="border p-2 rounded bg-white">
+                                            <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_3fr_1.5fr_auto] gap-2 items-center">
+                                                <input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.text`, e.target.value)} className={inputStyle} placeholder="Link Text"/>
+                                                <select value={link.linkType} onChange={e => { handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, ''); handleSettingsChange(`footer.columns.${colId}.links.${linkId}.linkType`, e.target.value); }} className={inputStyle}>
+                                                    <option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option>
+                                                </select>
+                                                <div>
+                                                    {link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop"/>}
+                                                    {link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle} placeholder="https://..."/>}
+                                                    {link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}
+                                                    {link.linkType === 'category' && <select value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}
+                                                </div>
+                                                <select value={link.icon || 'none'} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.icon`, e.target.value)} className={inputStyle}>
+                                                    <option value="none">No Icon</option><option value="phone">Phone</option><option value="mail">Email</option><option value="cart">Cart</option><option value="arrowRight">Arrow</option>
+                                                </select>
+                                                <button type="button" onClick={() => handleRemove(`footer.columns.${colId}.links.${linkId}`)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4 mx-auto"/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => handleAdd(`footer.columns.${colId}.links`)} className="mt-2 text-xs font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-3 h-3"/> Add Link</button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => handleAdd('footer.columns')} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Footer Column</button>
                         </div>
                     </div>
                  </CollapsibleSection>
-                 
-                <CollapsibleSection title="Product Page Settings">
+
+                 <CollapsibleSection title="Product Page Settings">
                     <div className="max-w-3xl space-y-4">
                          <div><label className="block text-sm font-medium text-gray-700">Shipping & Returns Information</label><textarea value={settings.productPage?.shippingReturnsInfo || ''} onChange={e => handleSettingsChange('productPage.shippingReturnsInfo', e.target.value)} className={inputStyle} rows={4} placeholder="Enter shipping and returns info. Supports HTML."/></div>
                          <h3 className="text-lg font-semibold pt-2">Page Buttons</h3>
