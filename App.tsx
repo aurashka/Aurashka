@@ -112,8 +112,10 @@ const App: React.FC = () => {
         if (viewportMeta) {
             if (setting === 'desktop') {
                 viewportMeta.setAttribute('content', 'width=1024');
+                document.body.classList.add('force-desktop-view');
             } else { // Default to responsive
                 viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+                document.body.classList.remove('force-desktop-view');
             }
         }
     });
@@ -124,6 +126,7 @@ const App: React.FC = () => {
         if (viewportMeta) {
             viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0');
         }
+        document.body.classList.remove('force-desktop-view');
     };
   }, []);
 

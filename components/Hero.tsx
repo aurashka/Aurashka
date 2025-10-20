@@ -96,6 +96,10 @@ const Hero: React.FC = () => {
           object-position: ${desktopFocus};
         }
       }
+      .force-desktop-view .hero-image {
+        transform: scale(${desktopZoom / 100});
+        object-position: ${desktopFocus};
+      }
     `;
 
     if (loading) {
