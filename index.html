@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AURASHKA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;700;800&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-green': 'rgb(var(--color-primary) / <alpha-value>)',
+              'brand-bg': 'rgb(var(--color-bg) / <alpha-value>)',
+              'brand-surface': 'rgb(var(--color-surface) / <alpha-value>)',
+              'brand-text': 'rgb(var(--color-text) / <alpha-value>)',
+              'brand-dark': 'rgb(var(--color-text) / <alpha-value>)', // Alias for text
+              'brand-secondary': 'rgb(var(--color-secondary) / <alpha-value>)',
+              'brand-light-gray': 'rgb(var(--color-light-gray) / <alpha-value>)',
+            },
+            fontFamily: {
+              'sans': ['Lato', 'sans-serif'],
+              'serif': ['Playfair Display', 'serif'],
+              'script': ['Pinyon Script', 'cursive'],
+            },
+            boxShadow: {
+              sm: '0 1px 2px 0 rgb(var(--shadow-color-rgb) / 0.05)',
+              DEFAULT: '0 1px 3px 0 rgb(var(--shadow-color-rgb) / 0.1), 0 1px 2px -1px rgb(var(--shadow-color-rgb) / 0.1)',
+              md: '0 4px 6px -1px rgb(var(--shadow-color-rgb) / 0.1), 0 2px 4px -2px rgb(var(--shadow-color-rgb) / 0.1)',
+              lg: '0 10px 15px -3px rgb(var(--shadow-color-rgb) / 0.1), 0 4px 6px -4px rgb(var(--shadow-color-rgb) / 0.1)',
+              xl: '0 20px 25px -5px rgb(var(--shadow-color-rgb) / 0.1), 0 8px 10px -6px rgb(var(--shadow-color-rgb) / 0.1)',
+              '2xl': '0 25px 50px -12px rgb(var(--shadow-color-rgb) / 0.25)',
+              inner: 'inset 0 2px 4px 0 rgb(var(--shadow-color-rgb) / 0.05)',
+            },
+          }
+        }
+      }
+    </script>
+    <style>
+      /* --- THEME DEFINITIONS --- */
+      .theme-light {
+        --color-primary: 107 127 115; /* brand-green */
+        --color-bg: 248 247 244; /* brand-offwhite */
+        --color-surface: 255 255 255; /* white */
+        --color-text: 51 51 51; /* brand-dark */
+        --color-secondary: 107 114 128; /* gray-500 */
+        --color-light-gray: 234 234 234; /* brand-light-gray */
+        --shadow-color-rgb: 0 0 0;
+      }
+      .theme-dark {
+        --color-primary: 121 145 132; /* Lighter green */
+        --color-bg: 18 18 18; /* Near black */
+        --color-surface: 36 36 36; /* Dark gray */
+        --color-text: 229 229 229; /* Light gray */
+        --color-secondary: 156 163 175; /* gray-400 */
+        --color-light-gray: 55 65 81; /* gray-700 */
+        --shadow-color-rgb: 220 220 220;
+      }
+      .theme-blue {
+        --color-primary: 67 117 188; /* Blue */
+        --color-bg: 239 246 255; /* Light blue */
+        --color-surface: 255 255 255; /* white */
+        --color-text: 28 35 43; /* Dark blue-gray */
+        --color-secondary: 75 85 99; /* gray-600 */
+        --color-light-gray: 229 231 235; /* gray-200 */
+        --shadow-color-rgb: 0 0 0;
+      }
+      .theme-diwali {
+        --color-primary: 217 94 36; /* Saffron/Orange */
+        --color-bg: 255 253 242; /* Very light cream */
+        --color-surface: 255 250 230; /* Light Cream for cards */
+        --color-text: 54 28 8; /* Dark Brown */
+        --color-secondary: 140 82 44; /* Lighter Brown */
+        --color-light-gray: 255 244 214; /* Light yellow-cream */
+        --shadow-color-rgb: 120 53 15;
+      }
+      .theme-diwali-dark {
+        --color-primary: 255 165 0; /* Gold/Orange */
+        --color-bg: 44 14 55; /* Deep Purple */
+        --color-surface: 60 25 75; /* Darker Purple */
+        --color-text: 255 245 220; /* Creamy White */
+        --color-secondary: 200 180 150; /* Light beige */
+        --color-light-gray: 80 45 95; /* Lighter Purple */
+        --shadow-color-rgb: 255 220 180;
+      }
+      
+      /* Base styles to use the variables */
+      body {
+        background-color: rgb(var(--color-bg));
+        color: rgb(var(--color-text));
+      }
+
+      /* Animations */
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up { animation: fade-in-up 0.5s ease-out forwards; }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      .rounded-inherit { border-radius: inherit; }
+      .bottom-blend-mask {
+          mask-image: linear-gradient(to top, black 30%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to top, black 30%, transparent 100%);
+      }
+      
+      /* --- DIWALI THEME OVERLAYS --- */
+      #diwali-header-overlay {
+          display: var(--diwali-header-display, none);
+          position: fixed;
+          top: -50px;
+          left: 50%;
+          transform: translateX(-50%) rotate(-5deg);
+          width: 400px;
+          height: 200px;
+          background-image: var(--diwali-header-img);
+          background-size: contain;
+          background-repeat: no-repeat;
+          z-index: 25;
+          pointer-events: none;
+          opacity: var(--diwali-header-opacity, 1);
+          animation: fade-in-up 1s ease-out forwards;
+      }
+
+      #header-garland-overlay {
+          display: var(--diwali-header-garland-display, none);
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 120px;
+          background-image: var(--diwali-header-garland-img);
+          background-size: contain;
+          background-position: top center;
+          background-repeat: no-repeat;
+          z-index: 25;
+          pointer-events: none;
+          opacity: var(--diwali-header-garland-opacity, 1);
+          animation: fade-in-up 1s ease-out forwards;
+      }
+
+      #diwali-section-bg-top {
+          display: var(--diwali-corner-display, none);
+          position: absolute;
+          top: 70vh; /* Position it below the hero */
+          left: 0;
+          width: 300px;
+          height: 300px;
+          background-image: var(--diwali-corner-img);
+          background-size: contain;
+          background-repeat: no-repeat;
+          z-index: 0; /* Behind content */
+          pointer-events: none;
+          mask-image: linear-gradient(to right, rgba(0,0,0,0.7), rgba(0,0,0,0));
+          opacity: var(--diwali-corner-opacity, 1);
+      }
+
+      #diwali-footer-overlay {
+          display: var(--diwali-fireworks-display, none); /* Controlled by a single display property */
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 250px;
+          background-image: var(--diwali-fireworks-img), var(--diwali-diya-row-img);
+          background-position: top center, bottom center;
+          background-repeat: no-repeat, repeat-x;
+          background-size: contain, auto 60px;
+          z-index: 0;
+          pointer-events: none;
+          opacity: var(--diwali-fireworks-opacity, 1); /* Main opacity for the element */
+          animation: fade-in-up 1s ease-out 0.5s forwards;
+      }
+      
+      #diwali-footer-overlay::before { /* For Diya Row opacity */
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px; /* Height of diya row */
+        opacity: var(--diwali-diya-row-opacity, 1);
+        background-image: var(--diwali-diya-row-img);
+        background-position: bottom center;
+        background-repeat: repeat-x;
+        background-size: auto 60px;
+      }
+      
+      /* --- DIWALI THEME FOOTER OVERLAY --- */
+      .theme-diwali footer,
+      .theme-diwali-dark footer {
+        position: relative;
+        z-index: 1; /* For stacking context */
+      }
+
+      .theme-diwali footer::before,
+      .theme-diwali-dark footer::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1; /* Behind footer content */
+        display: var(--diwali-footer-decorative-display, block);
+        background-image: var(--diwali-footer-decorative-img);
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        opacity: var(--diwali-footer-decorative-opacity, 1);
+        pointer-events: none;
+      }
+
+      /* --- THEME BUTTONS WITH TEXTURE --- */
+      .has-button-texture .bg-brand-green {
+        background-color: transparent !important;
+        background-image: var(--button-texture-url); 
+        background-size: 100% 100%;
+        background-position: center;
+        color: var(--button-text-color, white) !important;
+        border: none;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+      }
+      .has-button-texture .bg-brand-green:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+          filter: brightness(1.1);
+      }
+      
+      /* --- THEME CARDS WITH CUSTOM OVERLAY --- */
+      .has-custom-overlay {
+          position: relative;
+          z-index: 0;
+      }
+      .has-custom-overlay::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          pointer-events: none;
+          border-radius: inherit; /* Inherit border radius from parent card */
+          background-image: var(--surface-texture-url);
+          background-blend-mode: overlay;
+          background-size: 300px;
+          background-repeat: repeat;
+          opacity: var(--surface-texture-opacity, 0.2);
+      }
+
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "os": "https://aistudiocdn.com/os@^0.1.2"
+  }
+}
+</script>
+</head>
+  <body class="bg-brand-bg text-brand-text font-sans scrollbar-hide">
+    <div id="root"></div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
