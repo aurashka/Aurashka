@@ -8,7 +8,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, currentUser, resetPassword } = useAuth();
+  const { login, userProfile, resetPassword } = useAuth();
   const { navigate } = useNavigation();
 
   const [showResetModal, setShowResetModal] = useState(false);
@@ -18,14 +18,14 @@ const Login: React.FC = () => {
   const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUser) {
-      if (currentUser.email === 'aurashka.admin@gmail.com') {
+    if (userProfile) {
+      if (userProfile.role === 'admin') {
         navigate('admin');
       } else {
         navigate('profile');
       }
     }
-  }, [currentUser, navigate]);
+  }, [userProfile, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1671,7 +1671,7 @@ const ThemeSettingsManager: FC = () => {
 
 // --- Main Admin Dashboard Component ---
 const AdminDashboard: React.FC = () => {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, userProfile, logout } = useAuth();
     const { navigate } = useNavigation();
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminActiveTab') || 'products');
@@ -1681,13 +1681,24 @@ const AdminDashboard: React.FC = () => {
     }, [activeTab]);
 
     useEffect(() => {
-        if (!currentUser) navigate('login');
-        else if (currentUser.email !== 'aurashka.admin@gmail.com') navigate('home');
-        else setLoading(false);
-    }, [currentUser, navigate]);
+        if (!currentUser) {
+            navigate('login');
+            return;
+        }
+
+        if (userProfile) { // if user profile is loaded
+            if (userProfile.role !== 'admin') {
+                navigate('home'); // not an admin, go away
+            } else {
+                setLoading(false); // is an admin, show content
+            }
+        }
+        // if userProfile is null, we are still loading, so `loading` remains true.
+        // The effect will re-run when `userProfile` is updated by `AuthContext`.
+    }, [currentUser, userProfile, navigate]);
     
     const handleLogout = async () => { try { await logout(); navigate('home'); } catch {} };
-    if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading Admin Panel...</div>;
+    if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Verifying access...</div>;
 
     const renderContent = () => {
         switch (activeTab) {
@@ -1703,7 +1714,7 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gray-100">
-            <header className="bg-white shadow-sm sticky top-0 z-10"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><a href="#" onClick={(e) => { e.preventDefault(); navigate('home'); }} className="flex items-center space-x-2"><img className="h-10 w-auto rounded-full" src="https://images.unsplash.com/photo-1617933400159-4c87ca5a2f58?q=80&w=400&auto=format&fit=crop" alt="AURASHKA Logo" /><span className="text-xl font-serif tracking-widest uppercase text-brand-dark">Admin Panel</span></a><button onClick={handleLogout} className="text-sm font-medium text-gray-600 hover:text-brand-dark px-4 py-2 rounded-lg hover:bg-gray-50">Logout</button></div></div></header>
+            <header className="bg-white shadow-sm sticky top-0 z-10"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><a href="#" onClick={(e) => { e.preventDefault(); navigate('home'); }} className="flex items-center space-x-2"><img className="h-10 w-auto rounded-full" src="https://i.ibb.co/7j0b561/logo.png" alt="AURASHKA Logo" /><span className="text-xl font-serif tracking-widest uppercase text-brand-dark">Admin Panel</span></a><button onClick={handleLogout} className="text-sm font-medium text-gray-600 hover:text-brand-dark px-4 py-2 rounded-lg hover:bg-gray-50">Logout</button></div></div></header>
             <main className="py-10"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="mb-6 bg-white p-2 rounded-lg shadow-sm flex items-center space-x-2 overflow-x-auto"><TabButton tabName="products" label="Products" /><TabButton tabName="categories" label="Categories" /><TabButton tabName="users" label="Users" /><TabButton tabName="homepage" label="Homepage Content" /><TabButton tabName="theme" label="Theme Settings" /></div><div className="space-y-6">{renderContent()}</div></div></main>
         </div>
     );

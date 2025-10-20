@@ -10,13 +10,13 @@ import LazyImage from './LazyImage';
 
 
 const Header: React.FC = () => {
-    const { currentUser, logout } = useAuth();
+    const { currentUser, userProfile, logout } = useAuth();
     const { navigate } = useNavigation();
     const { cartCount } = useCart();
     const { theme } = useTheme();
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const [logoUrl, setLogoUrl] = useState('https://images.unsplash.com/photo-1617933400159-4c87ca5a2f58?q=80&w=400&auto=format&fit=crop');
+    const [logoUrl, setLogoUrl] = useState('https://i.ibb.co/7j0b561/logo.png');
     const [siteTitle, setSiteTitle] = useState('AURASHKA');
     const [siteTitleImageUrl, setSiteTitleImageUrl] = useState('');
     const [useImageForTitle, setUseImageForTitle] = useState(false);
@@ -144,11 +144,24 @@ const Header: React.FC = () => {
                     </button>
                     {currentUser && isProfileDropdownOpen && (
                         <div className="absolute right-0 mt-2 w-48 bg-brand-surface rounded-md shadow-lg py-1 z-50 ring-1 ring-black ring-opacity-5">
+                            {userProfile?.role === 'admin' && (
+                                <a
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        navigate('admin');
+                                        setIsProfileDropdownOpen(false);
+                                    }}
+                                    className="block px-4 py-2 text-sm text-brand-secondary hover:bg-brand-light-gray/50"
+                                >
+                                    Admin Panel
+                                </a>
+                            )}
                             <a
                                 href="#"
                                 onClick={(e) => {
                                     e.preventDefault();
-                                    navigate(currentUser.email === 'aurashka.admin@gmail.com' ? 'admin' : 'profile');
+                                    navigate('profile');
                                     setIsProfileDropdownOpen(false);
                                 }}
                                 className="block px-4 py-2 text-sm text-brand-secondary hover:bg-brand-light-gray/50"

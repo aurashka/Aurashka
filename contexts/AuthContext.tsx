@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
-import { useNavigation } from './NavigationContext';
+import { User } from '../types';
 
 // Define the User type for firebase auth user object
 interface AuthUser {
@@ -10,6 +10,7 @@ interface AuthUser {
 
 interface AuthContextType {
   currentUser: AuthUser | null;
+  userProfile: User | null;
   loading: boolean;
   signup: (name: string, email: string, phone: string, pass: string) => Promise<any>;
   login: (email: string, pass: string) => Promise<any>;
@@ -29,15 +30,16 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { navigate } = useNavigation();
 
   function signup(name: string, email: string, phone: string, pass: string) {
-    return auth.createUserWithEmailAndPassword(email, pass).then(cred => {
+    return auth.createUserWithEmailAndPassword(email, pass).then((cred: { user: { uid: any; }; }) => {
       return db.ref('users/' + cred.user.uid).set({
         name,
         email,
-        phone
+        phone,
+        role: 'user',
       });
     });
   }
@@ -55,15 +57,29 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   }
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
+    const unsubscribe = auth.onAuthStateChanged((user: AuthUser | null) => {
       setCurrentUser(user);
       setLoading(false);
     });
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (currentUser) {
+      const userRef = db.ref(`users/${currentUser.uid}`);
+      const listener = userRef.on('value', (snapshot: any) => {
+        setUserProfile(snapshot.val() ? { id: currentUser.uid, ...snapshot.val() } : null);
+      });
+      return () => userRef.off('value', listener);
+    } else {
+      setUserProfile(null);
+    }
+  }, [currentUser]);
+
+
   const value = {
     currentUser,
+    userProfile,
     loading,
     signup,
     login,

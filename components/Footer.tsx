@@ -36,7 +36,7 @@ const Footer: React.FC = () => {
   const { theme } = useTheme();
   const [subscriberEmail, setSubscriberEmail] = useState('');
   const [settings, setSettings] = useState<Partial<SiteSettings>>({
-    logoUrl: 'https://images.unsplash.com/photo-1617933400159-4c87ca5a2f58?q=80&w=400&auto=format&fit=crop',
+    logoUrl: 'https://i.ibb.co/7j0b561/logo.png',
     siteTitle: 'AURASHKA',
     footer: {
       description: "Unleash your divine beauty with nature's finest ingredients.",
