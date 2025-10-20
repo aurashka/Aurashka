@@ -7,6 +7,7 @@ export interface DiwaliOverlaySetting {
     darkUrl?: string;
     enabled?: boolean;
     opacity?: number; // 0 to 1
+    displayOnThemes?: { [key in Theme]?: boolean };
 }
 
 export interface DiwaliThemeSettings {

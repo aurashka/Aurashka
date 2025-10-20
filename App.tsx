@@ -79,10 +79,13 @@ const App: React.FC = () => {
 
         Object.entries(overlays).forEach(([key, overlaySettings]) => {
             const varPrefix = `--diwali-${key}`;
-            const isDark = theme === 'diwali-dark';
+            const isDark = theme.includes('dark');
             const url = isDark && overlaySettings?.darkUrl ? overlaySettings.darkUrl : overlaySettings?.url;
 
-            updateCSSVar(`${varPrefix}-display`, overlaySettings?.enabled !== false ? 'block' : 'none');
+            const isEnabled = overlaySettings?.enabled !== false;
+            const isVisibleOnTheme = !!overlaySettings?.displayOnThemes?.[theme];
+
+            updateCSSVar(`${varPrefix}-display`, isEnabled && isVisibleOnTheme ? 'block' : 'none');
             updateCSSVar(`${varPrefix}-opacity`, String(overlaySettings?.opacity ?? 1));
             updateCSSVar(`${varPrefix}-img`, url ? `url('${url}')` : null);
         });
@@ -101,6 +104,29 @@ const App: React.FC = () => {
     };
   }, [theme]); // Rerun when theme changes to apply correct dark/light URLs
   
+  useEffect(() => {
+    const viewportSettingRef = db.ref('site_settings/mobileViewport');
+    const listener = viewportSettingRef.on('value', (snapshot) => {
+        const setting = snapshot.val();
+        const viewportMeta = document.querySelector('meta[name="viewport"]');
+        if (viewportMeta) {
+            if (setting === 'desktop') {
+                viewportMeta.setAttribute('content', 'width=1024');
+            } else { // Default to responsive
+                viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+            }
+        }
+    });
+
+    return () => {
+        viewportSettingRef.off('value', listener);
+        const viewportMeta = document.querySelector('meta[name="viewport"]');
+        if (viewportMeta) {
+            viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+        }
+    };
+  }, []);
+
   // FIX: Replaced `Object.entries` with `Object.keys` and added explicit type assertions
   // to fix TypeScript errors related to indexing and argument types when setting CSS variables.
   useEffect(() => {
@@ -170,7 +196,7 @@ const App: React.FC = () => {
       <CartProvider>
         <SettingsProvider>
             <div className="bg-brand-surface text-brand-text">
-                {(theme === 'diwali' || theme === 'diwali-dark') && <DiwaliOverlays />}
+                <DiwaliOverlays />
                 <FloatingDecorations />
                 <HeaderOverlap />
                 <Header />

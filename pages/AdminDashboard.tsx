@@ -674,7 +674,7 @@ const HomepageSettingsManager: FC = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Overlay Image</label>
                                 {settings.decorativeOverlays?.hero?.url && <img src={settings.decorativeOverlays.hero.url} alt="Hero overlay preview" className="w-full h-32 object-contain rounded-md my-2 border bg-gray-100 p-2" />}
-                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.hero.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
+                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.hero.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
                                 <input type="text" value={settings.decorativeOverlays?.hero?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.hero.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
                                 <button type="button" onClick={() => handleSettingsChange('decorativeOverlays.hero.url', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
                             </div>
@@ -689,7 +689,7 @@ const HomepageSettingsManager: FC = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Overlay Image</label>
                                 {settings.decorativeOverlays?.productShowcase?.url && <img src={settings.decorativeOverlays.productShowcase.url} alt="Showcase overlay preview" className="w-full h-32 object-contain rounded-md my-2 border bg-gray-100 p-2" />}
-                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.productShowcase.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
+                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.productShowcase.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
                                 <input type="text" value={settings.decorativeOverlays?.productShowcase?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.productShowcase.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
                                 <button type="button" onClick={() => handleSettingsChange('decorativeOverlays.productShowcase.url', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
                             </div>
@@ -1150,7 +1150,8 @@ const DiwaliOverlayEditor: FC<{
     settings: DiwaliOverlaySetting | undefined;
     onSettingChange: (path: string, value: any) => void;
     basePath: string;
-}> = ({ label, settings, onSettingChange, basePath }) => {
+    themes: { name: Theme; label: string; color: string }[];
+}> = ({ label, settings, onSettingChange, basePath, themes }) => {
     const inputStyle = "w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green";
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
         if(e.target.files?.[0]){ try{ onSettingChange(field, await uploadFile(e.target.files[0])); } catch { alert("Upload failed.")}}
@@ -1179,6 +1180,22 @@ const DiwaliOverlayEditor: FC<{
                         <input type="text" placeholder="Image URL for dark theme" value={settings?.darkUrl || ''} onChange={e => onSettingChange(`${basePath}.darkUrl`, e.target.value)} className={inputStyle} />
                         <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `${basePath}.darkUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
                     </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-700">Visible on themes:</label>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
+                            {themes.map(t => (
+                                <label key={t.name} className="flex items-center space-x-1.5 text-sm font-medium text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings?.displayOnThemes?.[t.name] ?? false}
+                                        onChange={e => onSettingChange(`${basePath}.displayOnThemes.${t.name}`, e.target.checked)}
+                                        className="h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+                                    />
+                                    <span>{t.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
                 </div>
              )}
         </div>
@@ -1199,6 +1216,7 @@ const getInitialThemeSettings = () => ({
     floatingDecorations: {} as { [key: string]: FloatingDecoration }, 
     searchPage: { title: 'Search Our Products' }, 
     enableGlobalCardOverlay: false,
+    mobileViewport: 'responsive' as 'responsive' | 'desktop',
     shopPage: { title: 'Our Products', subtitle: 'Discover our curated collection of nature-inspired beauty essentials.' } as ShopPageSettings,
     headerOverlapImage: { enabled: false, imageUrl: '', opacity: 1, position: 'full', width: '100%', height: '150px', top: '0px', zIndex: 25 } as HeaderOverlapImageSettings,
     bottomBlend: { enabled: false, imageUrl: '', darkImageUrl: '', opacity: 0.5, height: '350px', displayOnThemes: {} } as BottomBlendSettings,
@@ -1337,6 +1355,34 @@ const ThemeSettingsManager: FC = () => {
                             </label>
                             <p className="text-xs text-gray-500 mt-1">This applies the configured "Surface Texture" from the color settings to all product cards. The "Apply Card Overlay" setting on individual products will also enable it if this is off.</p>
                         </div>
+                        <div className="pt-4 border-t">
+                            <h3 className="text-lg font-semibold text-gray-800">Mobile Viewport</h3>
+                            <p className="text-sm text-gray-500 mt-1">Control how the site is displayed on mobile devices.</p>
+                            <div className="flex flex-wrap gap-4 pt-2">
+                                <label className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:bg-brand-green/10 has-[:checked]:border-brand-green">
+                                    <input 
+                                        type="radio" 
+                                        name="mobileViewport"
+                                        value="responsive"
+                                        checked={settings.mobileViewport === 'responsive'}
+                                        onChange={e => handleSettingsChange('mobileViewport', e.target.value)}
+                                        className="h-4 w-4 text-brand-green border-gray-300 focus:ring-brand-green"
+                                    />
+                                    <span className="font-medium text-gray-800">Responsive (Normal Android/iOS View)</span>
+                                </label>
+                                <label className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:bg-brand-green/10 has-[:checked]:border-brand-green">
+                                    <input 
+                                        type="radio" 
+                                        name="mobileViewport"
+                                        value="desktop"
+                                        checked={settings.mobileViewport === 'desktop'}
+                                        onChange={e => handleSettingsChange('mobileViewport', e.target.value)}
+                                        className="h-4 w-4 text-brand-green border-gray-300 focus:ring-brand-green"
+                                    />
+                                    <span className="font-medium text-gray-800">Force Desktop View</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </CollapsibleSection>
 
@@ -1401,36 +1447,42 @@ const ThemeSettingsManager: FC = () => {
                             settings={settings.diwaliThemeSettings?.headerGarland}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.headerGarland"
+                            themes={themes}
                         />
                          <DiwaliOverlayEditor
                             label="Header Streamer (Jhalar)"
                             settings={settings.diwaliThemeSettings?.headerOverlay}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.headerOverlay"
+                            themes={themes}
                         />
                         <DiwaliOverlayEditor
                             label="Corner Decoration (Rangoli)"
                             settings={settings.diwaliThemeSettings?.cornerRangoli}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.cornerRangoli"
+                            themes={themes}
                         />
                         <DiwaliOverlayEditor
                             label="Footer Fireworks"
                             settings={settings.diwaliThemeSettings?.fireworks}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.fireworks"
+                            themes={themes}
                         />
                         <DiwaliOverlayEditor
                             label="Footer Diya Row"
                             settings={settings.diwaliThemeSettings?.diyaRow}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.diyaRow"
+                            themes={themes}
                         />
                          <DiwaliOverlayEditor
                             label="Footer Decorative Overlay"
                             settings={settings.diwaliThemeSettings?.footerDecorativeOverlay}
                             onSettingChange={handleSettingsChange}
                             basePath="diwaliThemeSettings.footerDecorativeOverlay"
+                            themes={themes}
                         />
                     </div>
                 </CollapsibleSection>
