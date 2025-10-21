@@ -139,7 +139,8 @@ export interface Order {
 
 export interface HeroImageStyles {
   zoom: number; // Percentage, e.g., 100, 120
-  focusPoint: string; // CSS object-position value, e.g., 'center', 'top right'
+  focusX: number; // Percentage from 0 to 100
+  focusY: number; // Percentage from 0 to 100
 }
 
 export interface HeroSettings {
@@ -216,6 +217,14 @@ export interface BestsellerListSettings {
   rows?: number;
   itemsToShow?: number;
   location: 'top' | 'default' | 'bottom';
+}
+
+export interface ProductShowcaseSettings {
+  enabled: boolean;
+  image: string;
+  text: string;
+  location: 'top' | 'default' | 'bottom';
+  order: number;
 }
 
 export interface CategoryCardSettings {

@@ -2,7 +2,7 @@ import React, { useEffect, useState, FC, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { db } from '../firebase';
-import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings } from '../types';
+import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings } from '../types';
 import { allProducts as staticProducts, initialCategories } from '../constants';
 import { XIcon, TrashIcon, PlusIcon, ArrowRightIcon, ChevronDownIcon, PhoneIcon, MailIcon, CartIcon, SparkleIcon, StarIcon, LeafIcon } from '../components/Icons';
 
@@ -501,8 +501,13 @@ const HeroPreview: FC<{ settings: Partial<HeroSettings> }> = ({ settings }) => {
 };
 
 const getInitialHomepageSettings = () => ({
-    productShowcaseImage: '',
-    productShowcaseText: '',
+    productShowcaseSection: { 
+        enabled: true, 
+        image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", 
+        text: "Discover Yourself", 
+        location: 'default', 
+        order: 20 
+    } as ProductShowcaseSettings,
     shopByCategoryTitle: 'Shop by Category',
     categoryCardSettings: {
         height: '384px', borderRadiusTop: '150px', borderRadiusBottom: '12px',
@@ -609,9 +614,7 @@ const HomepageSettingsManager: FC = () => {
 
     const inputStyle = "w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green";
     const textareaStyle = `${inputStyle} h-24`;
-
-    const focusPointOptions = ['center', 'top', 'bottom', 'left', 'right', 'top left', 'top right', 'bottom left', 'bottom right'];
-
+    
     return (
         <div>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -627,15 +630,19 @@ const HomepageSettingsManager: FC = () => {
                                 <h4 className="font-semibold mb-2">Desktop</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom ({settings.heroSection?.imageStyles?.desktop?.zoom || 100}%)</label>
                                 <input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Point</label>
-                                <select value={settings.heroSection?.imageStyles?.desktop?.focusPoint || 'center'} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusPoint', e.target.value)} className={inputStyle} >{focusPointOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X ({settings.heroSection?.imageStyles?.desktop?.focusX || 50}%)</label>
+                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y ({settings.heroSection?.imageStyles?.desktop?.focusY || 50}%)</label>
+                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
                             </div>
                              <div>
                                 <h4 className="font-semibold mb-2">Mobile</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom ({settings.heroSection?.imageStyles?.mobile?.zoom || 100}%)</label>
                                 <input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Point</label>
-                                <select value={settings.heroSection?.imageStyles?.mobile?.focusPoint || 'center'} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusPoint', e.target.value)} className={inputStyle} >{focusPointOptions.map(o => <option key={o} value={o}>{o}</option>)}</select>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X ({settings.heroSection?.imageStyles?.mobile?.focusX || 50}%)</label>
+                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y ({settings.heroSection?.imageStyles?.mobile?.focusY || 50}%)</label>
+                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
                             </div>
                         </div>
                     </div>
@@ -663,6 +670,25 @@ const HomepageSettingsManager: FC = () => {
                          </div>
                     </div>
                     <HeroPreview settings={settings.heroSection} /></div>
+                </CollapsibleSection>
+                
+                <CollapsibleSection title="Product Showcase Section">
+                    <div className="max-w-3xl space-y-4">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" checked={settings.productShowcaseSection?.enabled || false} onChange={e => handleSettingsChange('productShowcaseSection.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
+                            <span>Enable this section</span>
+                        </label>
+                        {settings.productShowcaseSection?.enabled && (
+                            <div className="space-y-4 mt-4 animate-fade-in-up">
+                                <div><label className="block text-sm font-medium text-gray-700">Showcase Image</label><input type="text" value={settings.productShowcaseSection.image} onChange={e => handleSettingsChange('productShowcaseSection.image', e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'productShowcaseSection.image')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Showcase Text</label><input type="text" value={settings.productShowcaseSection.text} onChange={e => handleSettingsChange('productShowcaseSection.text', e.target.value)} placeholder="e.g. Discover Yourself" className={inputStyle} /></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label className="block text-sm font-medium">Location on Homepage</label><select value={settings.productShowcaseSection.location || 'default'} onChange={e=>handleSettingsChange('productShowcaseSection.location', e.target.value)} className={inputStyle}><option value="top">Top (Below Categories)</option><option value="default">Default (Middle)</option><option value="bottom">Bottom (Above Footer)</option></select></div>
+                                    <div><label className="block text-sm font-medium text-gray-700">Display Order</label><input type="number" value={settings.productShowcaseSection.order} onChange={e => handleSettingsChange('productShowcaseSection.order', Number(e.target.value))} className={inputStyle}/></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </CollapsibleSection>
 
                 <CollapsibleSection title="Decorative Overlays (Frames, etc.)">

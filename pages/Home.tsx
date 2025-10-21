@@ -8,7 +8,7 @@ import CustomOfferSection from '../components/CustomOfferSection';
 import HighlightedNote from '../components/HighlightedNote';
 import Testimonials from '../components/Testimonials';
 import { db } from '../firebase';
-import { OfferSectionSettings, HighlightedNoteSettings, BestsellerListSettings } from '../types';
+import { OfferSectionSettings, HighlightedNoteSettings, BestsellerListSettings, ProductShowcaseSettings } from '../types';
 import BestsellerList from '../components/BestsellerList';
 
 
@@ -16,6 +16,7 @@ const Home: React.FC = () => {
   const [customSections, setCustomSections] = useState<{ [key: string]: OfferSectionSettings } | null>(null);
   const [noteSettings, setNoteSettings] = useState<HighlightedNoteSettings | null>(null);
   const [bestsellerLists, setBestsellerLists] = useState<{ [key: string]: BestsellerListSettings } | null>(null);
+  const [productShowcaseSettings, setProductShowcaseSettings] = useState<ProductShowcaseSettings | null>(null);
 
 
   useEffect(() => {
@@ -25,40 +26,43 @@ const Home: React.FC = () => {
       setCustomSections(data?.offerSections || null);
       setNoteSettings(data?.highlightedNote || null);
       setBestsellerLists(data?.bestsellerLists || null);
+      setProductShowcaseSettings(data?.productShowcaseSection || null);
     });
     return () => settingsRef.off('value', listener);
   }, []);
+  
+  const { topSections, defaultSections, bottomSections } = useMemo(() => {
+    const allSections: any[] = [];
 
-  const [topSections, defaultSections, bottomSections] = useMemo(() => {
-    if (!customSections) return [[], [], []];
+    if (customSections) {
+        // FIX: Cast the result of Object.values to a typed array to resolve TypeScript errors where the element type was inferred as 'unknown'.
+        (Object.values(customSections) as OfferSectionSettings[]).forEach(s => s.enabled && allSections.push({ ...s, type: 'offer' }));
+    }
+    if (bestsellerLists) {
+        // FIX: Cast the result of Object.values to a typed array to resolve TypeScript errors where the element type was inferred as 'unknown'.
+        (Object.values(bestsellerLists) as BestsellerListSettings[]).forEach(s => s.enabled && allSections.push({ ...s, type: 'bestseller' }));
+    }
+    if (productShowcaseSettings && productShowcaseSettings.enabled) {
+        allSections.push({ ...productShowcaseSettings, id: 'product-showcase', type: 'showcase' });
+    }
+
+    allSections.sort((a, b) => (a.order || 99) - (b.order || 99));
+
+    const renderSection = (section: any) => {
+        switch (section.type) {
+            case 'offer': return <CustomOfferSection key={section.id} section={section} />;
+            case 'bestseller': return <BestsellerList key={section.id} section={section} />;
+            case 'showcase': return <ProductShowcase key={section.id} />;
+            default: return null;
+        }
+    };
     
-    const enabled = Object.values(customSections)
-        .filter((section: OfferSectionSettings) => section.enabled)
-        .sort((a: OfferSectionSettings, b: OfferSectionSettings) => a.order - b.order);
-
-    // FIX: Cast `s` to OfferSectionSettings to resolve issue where it is inferred as 'unknown'.
-    const top = enabled.filter((s: OfferSectionSettings) => s.location === 'top');
-    // FIX: Cast `s` to OfferSectionSettings to resolve issue where it is inferred as 'unknown'.
-    const bottom = enabled.filter((s: OfferSectionSettings) => s.location === 'bottom');
-    // FIX: Cast `s` to OfferSectionSettings to resolve issue where it is inferred as 'unknown'.
-    const def = enabled.filter((s: OfferSectionSettings) => s.location === 'default' || !s.location);
-
-    return [top, def, bottom];
-  }, [customSections]);
-
-  const [topBestsellers, defaultBestsellers, bottomBestsellers] = useMemo(() => {
-    if (!bestsellerLists) return [[], [], []];
-    
-    const enabled = Object.values(bestsellerLists)
-        .filter((list: BestsellerListSettings) => list.enabled)
-        .sort((a: BestsellerListSettings, b: BestsellerListSettings) => a.order - b.order);
-
-    const top = enabled.filter((l: BestsellerListSettings) => l.location === 'top');
-    const bottom = enabled.filter((l: BestsellerListSettings) => l.location === 'bottom');
-    const def = enabled.filter((l: BestsellerListSettings) => l.location === 'default' || !l.location);
-
-    return [top, def, bottom];
-  }, [bestsellerLists]);
+    return {
+        topSections: allSections.filter(s => s.location === 'top').map(renderSection),
+        defaultSections: allSections.filter(s => s.location === 'default' || !s.location).map(renderSection),
+        bottomSections: allSections.filter(s => s.location === 'bottom').map(renderSection)
+    };
+  }, [customSections, bestsellerLists, productShowcaseSettings]);
 
 
   return (
@@ -66,28 +70,12 @@ const Home: React.FC = () => {
       <Hero />
       <ImageScroller />
       <ShopByCategory />
-      {topSections.map(section => (
-        <CustomOfferSection key={section.id} section={section} />
-      ))}
-       {topBestsellers.map(list => (
-        <BestsellerList key={list.id} section={list} />
-      ))}
+      {topSections}
       {noteSettings && noteSettings.enabled && <HighlightedNote settings={noteSettings} />}
-      <ProductShowcase />
       <UsageSection />
       <Testimonials />
-      {defaultSections.map(section => (
-        <CustomOfferSection key={section.id} section={section} />
-      ))}
-      {defaultBestsellers.map(list => (
-        <BestsellerList key={list.id} section={list} />
-      ))}
-      {bottomSections.map(section => (
-        <CustomOfferSection key={section.id} section={section} />
-      ))}
-      {bottomBestsellers.map(list => (
-        <BestsellerList key={list.id} section={list} />
-      ))}
+      {defaultSections}
+      {bottomSections}
     </>
   );
 };

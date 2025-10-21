@@ -2,22 +2,19 @@ import React, { useState, useEffect } from 'react';
 import ProductCard from './ProductCard';
 import { ArrowLeftIcon, ArrowRightIcon } from './Icons';
 import { db } from '../firebase';
-import { Product, DecorativeOverlay } from '../types';
+import { Product, DecorativeOverlay, ProductShowcaseSettings } from '../types';
 import { ProductCardSkeleton } from './Skeletons';
 import LazyImage from './LazyImage';
 
 const ProductShowcase: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showcaseSettings, setShowcaseSettings] = useState({
-    image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    text: "Discover Yourself"
-  });
+  const [settings, setSettings] = useState<ProductShowcaseSettings | null>(null);
   const [overlay, setOverlay] = useState<DecorativeOverlay | null>(null);
 
   useEffect(() => {
     const productsRef = db.ref('products');
-    const settingsRef = db.ref('site_settings');
+    const settingsRef = db.ref('site_settings/productShowcaseSection');
     const overlayRef = db.ref('site_settings/decorativeOverlays/productShowcase');
 
     const productListener = productsRef.on('value', (snapshot) => {
@@ -35,13 +32,7 @@ const ProductShowcase: React.FC = () => {
     });
 
     const settingsListener = settingsRef.on('value', (snapshot) => {
-      const settingsData = snapshot.val();
-      if (settingsData) {
-        setShowcaseSettings({
-          image: settingsData.productShowcaseImage || showcaseSettings.image,
-          text: settingsData.productShowcaseText || showcaseSettings.text,
-        });
-      }
+      setSettings(snapshot.val());
     });
     
     const overlayListener = overlayRef.on('value', snapshot => {
@@ -54,6 +45,10 @@ const ProductShowcase: React.FC = () => {
       overlayRef.off('value', overlayListener);
     };
   }, []);
+
+  if (!settings?.enabled) {
+    return null;
+  }
 
   const popularProducts = products.filter(p => p.isPopular && p.isVisible !== false).slice(0, 6);
 
@@ -93,7 +88,7 @@ const ProductShowcase: React.FC = () => {
           <div className="relative h-[600px] hidden lg:block">
             <LazyImage 
                 wrapperClassName="absolute inset-0 w-full h-full rounded-lg shadow-xl"
-                src={showcaseSettings.image} 
+                src={settings.image} 
                 alt="Model with flawless skin" 
                 className="w-full h-full object-cover rounded-lg"
             />
@@ -108,7 +103,7 @@ const ProductShowcase: React.FC = () => {
                 ></div>
             )}
             <div className="absolute bottom-10 left-10 text-white">
-                <h3 className="text-5xl font-serif font-bold">{showcaseSettings.text}</h3>
+                <h3 className="text-5xl font-serif font-bold">{settings.text}</h3>
             </div>
           </div>
         </div>

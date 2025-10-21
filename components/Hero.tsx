@@ -22,8 +22,8 @@ const Hero: React.FC = () => {
             subheadline: 18
         },
         imageStyles: {
-            desktop: { zoom: 100, focusPoint: 'center' },
-            mobile: { zoom: 100, focusPoint: 'center' }
+            desktop: { zoom: 100, focusX: 50, focusY: 50 },
+            mobile: { zoom: 100, focusX: 50, focusY: 50 }
         }
     });
     const [overlay, setOverlay] = useState<DecorativeOverlay | null>(null);
@@ -80,9 +80,15 @@ const Hero: React.FC = () => {
     };
 
     const desktopZoom = content.imageStyles?.desktop?.zoom || 100;
-    const desktopFocus = content.imageStyles?.desktop?.focusPoint || 'center';
+    const desktopFocusX = content.imageStyles?.desktop?.focusX ?? 50;
+    const desktopFocusY = content.imageStyles?.desktop?.focusY ?? 50;
+    const desktopFocus = `${desktopFocusX}% ${desktopFocusY}%`;
+
     const mobileZoom = content.imageStyles?.mobile?.zoom || 100;
-    const mobileFocus = content.imageStyles?.mobile?.focusPoint || 'center';
+    const mobileFocusX = content.imageStyles?.mobile?.focusX ?? 50;
+    const mobileFocusY = content.imageStyles?.mobile?.focusY ?? 50;
+    const mobileFocus = `${mobileFocusX}% ${mobileFocusY}%`;
+
 
     const imageCustomStyles = `
       .hero-image {
