@@ -8,8 +8,9 @@ import CustomOfferSection from '../components/CustomOfferSection';
 import HighlightedNote from '../components/HighlightedNote';
 import Testimonials from '../components/Testimonials';
 import { db } from '../firebase';
-import { OfferSectionSettings, HighlightedNoteSettings, BestsellerListSettings, ProductShowcaseSettings } from '../types';
+import { OfferSectionSettings, HighlightedNoteSettings, BestsellerListSettings, ProductShowcaseSettings, EmbedScrollerSettings } from '../types';
 import BestsellerList from '../components/BestsellerList';
+import EmbedScroller from '../components/EmbedScroller';
 
 
 const Home: React.FC = () => {
@@ -17,6 +18,7 @@ const Home: React.FC = () => {
   const [noteSettings, setNoteSettings] = useState<HighlightedNoteSettings | null>(null);
   const [bestsellerLists, setBestsellerLists] = useState<{ [key: string]: BestsellerListSettings } | null>(null);
   const [productShowcaseSettings, setProductShowcaseSettings] = useState<ProductShowcaseSettings | null>(null);
+  const [embedScrollers, setEmbedScrollers] = useState<{ [key: string]: EmbedScrollerSettings } | null>(null);
 
 
   useEffect(() => {
@@ -27,6 +29,7 @@ const Home: React.FC = () => {
       setNoteSettings(data?.highlightedNote || null);
       setBestsellerLists(data?.bestsellerLists || null);
       setProductShowcaseSettings(data?.productShowcaseSection || null);
+      setEmbedScrollers(data?.embedScrollers || null);
     });
     return () => settingsRef.off('value', listener);
   }, []);
@@ -45,6 +48,9 @@ const Home: React.FC = () => {
     if (productShowcaseSettings && productShowcaseSettings.enabled) {
         allSections.push({ ...productShowcaseSettings, id: 'product-showcase', type: 'showcase' });
     }
+    if (embedScrollers) {
+        (Object.values(embedScrollers) as EmbedScrollerSettings[]).forEach(s => s.enabled && allSections.push({ ...s, type: 'embedScroller' }));
+    }
 
     allSections.sort((a, b) => (a.order || 99) - (b.order || 99));
 
@@ -53,6 +59,7 @@ const Home: React.FC = () => {
             case 'offer': return <CustomOfferSection key={section.id} section={section} />;
             case 'bestseller': return <BestsellerList key={section.id} section={section} />;
             case 'showcase': return <ProductShowcase key={section.id} />;
+            case 'embedScroller': return <EmbedScroller key={section.id} section={section} />;
             default: return null;
         }
     };
@@ -62,7 +69,7 @@ const Home: React.FC = () => {
         defaultSections: allSections.filter(s => s.location === 'default' || !s.location).map(renderSection),
         bottomSections: allSections.filter(s => s.location === 'bottom').map(renderSection)
     };
-  }, [customSections, bestsellerLists, productShowcaseSettings]);
+  }, [customSections, bestsellerLists, productShowcaseSettings, embedScrollers]);
 
 
   return (

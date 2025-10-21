@@ -2,7 +2,7 @@ import React, { useEffect, useState, FC, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { db } from '../firebase';
-import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings } from '../types';
+import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings, EmbedScrollerSettings, EmbedSlide } from '../types';
 import { allProducts as staticProducts, initialCategories } from '../constants';
 import { XIcon, TrashIcon, PlusIcon, ArrowRightIcon, ChevronDownIcon, PhoneIcon, MailIcon, CartIcon, SparkleIcon, StarIcon, LeafIcon } from '../components/Icons';
 
@@ -517,6 +517,7 @@ const getInitialHomepageSettings = () => ({
     heroSection: {} as Partial<HeroSettings>,
     usageSection: { enabled: true, title: '', subtitle: '', box1Text: '', box2Text: '', image: '' },
     imageScroller: { enabled: false, slides: {}, slideSize: 'medium' } as ImageScrollerSettings,
+    embedScrollers: {} as { [key: string]: EmbedScrollerSettings },
     offerSections: {} as { [key: string]: OfferSectionSettings },
     bestsellerLists: {} as { [key: string]: BestsellerListSettings },
     highlightedNote: { enabled: false, title: '', text: '', backgroundColor: '#F8F7F4', textColor: '#333333' } as HighlightedNoteSettings,
@@ -628,21 +629,21 @@ const HomepageSettingsManager: FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <h4 className="font-semibold mb-2">Desktop</h4>
-                                <label className="block text-xs font-medium text-gray-600">Zoom ({settings.heroSection?.imageStyles?.desktop?.zoom || 100}%)</label>
-                                <input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X ({settings.heroSection?.imageStyles?.desktop?.focusX || 50}%)</label>
-                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y ({settings.heroSection?.imageStyles?.desktop?.focusY || 50}%)</label>
-                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+                                <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                             </div>
                              <div>
                                 <h4 className="font-semibold mb-2">Mobile</h4>
-                                <label className="block text-xs font-medium text-gray-600">Zoom ({settings.heroSection?.imageStyles?.mobile?.zoom || 100}%)</label>
-                                <input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X ({settings.heroSection?.imageStyles?.mobile?.focusX || 50}%)</label>
-                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y ({settings.heroSection?.imageStyles?.mobile?.focusY || 50}%)</label>
-                                <input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+                                <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusY', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                             </div>
                         </div>
                     </div>
@@ -949,6 +950,48 @@ const HomepageSettingsManager: FC = () => {
                      <div className="max-w-3xl space-y-4">{/* Image Scroller */}
                         <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.imageScroller?.enabled || false} onChange={e => handleSettingsChange('imageScroller.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
                          {settings.imageScroller?.enabled && <div className="space-y-4 mt-4">{settings.imageScroller.slides && Object.entries(settings.imageScroller.slides).map(([id, slide]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="flex items-start gap-4"><div className="w-1/3"><label className="block text-sm font-medium text-gray-700 mb-1">Poster Image</label><img src={slide.image || 'https://via.placeholder.com/150x200'} alt="poster" className="w-full aspect-[3/4] object-cover rounded border bg-gray-100" /></div><div className="w-2/3 space-y-2"><input type="text" value={slide.image} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" onChange={e => handleImageUpload(e, `imageScroller.slides.${id}.image`)} className="text-sm w-full"/><input type="text" value={slide.altText} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.altText`, e.target.value)} placeholder="Alt Text" className={inputStyle} /></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center"><select value={slide.linkType} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.linkType`, e.target.value)} className={inputStyle}><option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option></select><div>{slide.linkType === 'internal' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{slide.linkType === 'external' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{slide.linkType === 'product' && <select value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{slide.linkType === 'category' && <select value={slide.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`imageScroller.slides.${id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div></div><button type="button" onClick={() => handleRemove(`imageScroller.slides.${id}`)} className="text-sm text-red-600 hover:underline">Remove Slide</button></div>))}<button type="button" onClick={() => handleAdd('imageScroller.slides', { image: '', linkType: 'none', link: '' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button></div>}
+                    </div>
+                </CollapsibleSection>
+
+                 <CollapsibleSection title="Embed Scroller Sections">
+                    <div className="max-w-3xl space-y-4">
+                        <p className="text-sm text-gray-600">Create auto-scrolling sections with embedded content like YouTube videos, HTML, or other iframes.</p>
+                        {(Object.values(settings.embedScrollers || {}) as EmbedScrollerSettings[]).sort((a,b) => (a.order || 0) - (b.order || 0)).map(section => (
+                            <div key={section.id} className="border p-4 rounded-lg space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-semibold text-gray-800">Scroller: {section.title || "Untitled"}</h3>
+                                    <button type="button" onClick={() => handleRemove(`embedScrollers.${section.id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                                <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={section.enabled} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.enabled`, e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <input type="text" value={section.title} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.title`, e.target.value)} placeholder="Section Title" className={inputStyle}/>
+                                    <input type="number" value={section.order} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.order`, Number(e.target.value))} placeholder="Display Order" className={inputStyle}/>
+                                    <select value={section.location || 'default'} onChange={e=>handleSettingsChange(`embedScrollers.${section.id}.location`, e.target.value)} className={inputStyle}><option value="top">Top</option><option value="default">Default</option><option value="bottom">Bottom</option></select>
+                                    <input type="text" value={section.height} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.height`, e.target.value)} placeholder="Height (e.g., 60vh, 500px)" className={inputStyle}/>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={section.autoplay} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.autoplay`, e.target.checked)} className="h-4 w-4"/><span>Autoplay</span></label>
+                                    <input type="number" value={section.interval} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.interval`, Number(e.target.value))} placeholder="Interval (ms)" className={inputStyle} disabled={!section.autoplay}/>
+                                </div>
+                                <div className="space-y-2 border-t pt-3">
+                                    <h4 className="font-semibold text-sm">Slides</h4>
+                                    {section.slides && Object.entries(section.slides).map(([slideId, slide]: [string, any]) => (
+                                        <div key={slideId} className="border p-3 rounded-md space-y-2 bg-gray-50/50">
+                                            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                                                <select value={slide.type} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.slides.${slideId}.type`, e.target.value)} className={inputStyle}>
+                                                    <option value="youtube">YouTube</option><option value="video">Video URL</option><option value="html">HTML</option><option value="iframe">Iframe URL</option>
+                                                </select>
+                                                <input type="text" value={slide.caption} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.slides.${slideId}.caption`, e.target.value)} placeholder="Caption (optional)" className={inputStyle} />
+                                                <button type="button" onClick={() => handleRemove(`embedScrollers.${section.id}.slides.${slideId}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                            </div>
+                                            <textarea value={slide.content} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.slides.${slideId}.content`, e.target.value)} placeholder={slide.type === 'youtube' ? 'YouTube Video ID' : 'URL or HTML Content'} className={inputStyle} rows={3}></textarea>
+                                        </div>
+                                    ))}
+                                    <button type="button" onClick={() => handleAdd(`embedScrollers.${section.id}.slides`, { type: 'youtube', content: '', caption: '' })} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button>
+                                </div>
+                            </div>
+                        ))}
+                        <button type="button" onClick={() => handleAdd('embedScrollers', { enabled: true, title: 'New Scroller', slides: {}, order: (Object.keys(settings.embedScrollers || {}).length + 1) * 10, location: 'default', height: '60vh', autoplay: true, interval: 5000 })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Embed Scroller Section</button>
                     </div>
                 </CollapsibleSection>
 

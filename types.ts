@@ -191,6 +191,28 @@ export interface ImageScrollerSettings {
   slideSize?: 'small' | 'medium' | 'large';
 }
 
+export type EmbedType = 'youtube' | 'video' | 'html' | 'iframe';
+
+export interface EmbedSlide {
+  id: string;
+  type: EmbedType;
+  content: string;
+  caption?: string;
+}
+
+export interface EmbedScrollerSettings {
+  id: string;
+  enabled: boolean;
+  title: string;
+  slides: { [key: string]: Omit<EmbedSlide, 'id'> };
+  location: 'top' | 'default' | 'bottom';
+  order: number;
+  height: string; // e.g., '500px', '70vh'
+  autoplay: boolean;
+  interval: number; // in milliseconds
+}
+
+
 export interface OfferSectionSettings {
   id: string;
   enabled: boolean;
