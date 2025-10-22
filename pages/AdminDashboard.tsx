@@ -1779,6 +1779,27 @@ const ThemeSettingsManager: FC = () => {
                         <h2 className="text-xl font-bold">General Footer Content</h2>
                         <textarea value={settings.footer.description} onChange={e => handleSettingsChange('footer.description', e.target.value)} placeholder="Footer Description" className={inputStyle} rows={2}/>
                         <input type="text" value={settings.footer.copyrightText} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder="Copyright Text" className={inputStyle}/>
+                        
+                        <h2 className="text-xl font-bold pt-4 border-t">Contact Information</h2>
+                        <div className="space-y-2">
+                            <div>
+                                <label className="text-sm font-medium text-gray-700">Phone Number</label>
+                                <input type="text" value={settings.footer.contactInfo?.phone || ''} onChange={e => handleSettingsChange('footer.contactInfo.phone', e.target.value)} placeholder="e.g., +1 (555) 123-4567" className={inputStyle}/>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                                <input type="email" value={settings.footer.contactInfo?.email || ''} onChange={e => handleSettingsChange('footer.contactInfo.email', e.target.value)} placeholder="e.g., contact@aurashka.com" className={inputStyle}/>
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-gray-700">Location / Address</label>
+                                <input type="text" value={settings.footer.contactInfo?.location || ''} onChange={e => handleSettingsChange('footer.contactInfo.location', e.target.value)} placeholder="e.g., 123 Beauty Lane, Nature City" className={inputStyle}/>
+                            </div>
+                             <div>
+                                <label className="text-sm font-medium text-gray-700">Business Hours / Timing</label>
+                                <input type="text" value={settings.footer.contactInfo?.timing || ''} onChange={e => handleSettingsChange('footer.contactInfo.timing', e.target.value)} placeholder="e.g., Mon - Fri, 9am - 5pm" className={inputStyle}/>
+                            </div>
+                        </div>
+
                         <h2 className="text-xl font-bold pt-4 border-t">Footer Columns</h2>
                         <div className="space-y-4">{settings.footer.columns && Object.entries(settings.footer.columns).map(([id, col]: [string, any]) => (<div key={id} className="border p-4 rounded-md space-y-3"><div className="flex justify-between items-center"><input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${id}.title`, e.target.value)} className={`${inputStyle} font-bold`}/><button type="button" onClick={() => handleRemove(`footer.columns.${id}`)} className="text-red-500 p-1"><TrashIcon className="w-5 h-5"/></button></div><div className="space-y-2">{col.links && Object.entries(col.links).map(([linkId, link]: [string, any])=>(<div key={linkId} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center"><input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.text`, e.target.value)} placeholder="Link Text" className={inputStyle}/><select value={link.linkType} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.linkType`, e.target.value)} className={inputStyle}><option value="internal">Internal</option><option value="external">External</option></select><button onClick={()=>handleRemove(`footer.columns.${id}.links.${linkId}`)}><TrashIcon className="w-4 h-4 text-red-400"/></button></div>))}</div><button type="button" onClick={()=>handleAdd(`footer.columns.${id}.links`)} className="text-sm font-medium text-brand-green hover:underline"><PlusIcon className="w-4 h-4 inline-block mr-1"/>Add Link</button></div>))}<button type="button" onClick={() => handleAdd('footer.columns')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Footer Column</button></div>
                         <h2 className="text-xl font-bold pt-4 border-t">Social Media Links</h2>

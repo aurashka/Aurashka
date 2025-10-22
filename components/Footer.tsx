@@ -7,7 +7,7 @@ import { ContactInfo, SocialLink, FooterSettings, NavLink, FooterColumn } from '
 import { 
     FacebookIcon, InstagramIcon, TwitterIcon, YoutubeIcon, PinterestIcon, LinkedinIcon,
     TiktokIcon, WhatsappIcon, TelegramIcon,
-    PhoneIcon, MailIcon, MapPinIcon, CartIcon, ArrowRightIcon
+    PhoneIcon, MailIcon, MapPinIcon, CartIcon, ArrowRightIcon, ClockIcon
 } from './Icons';
 import LazyImage from './LazyImage';
 
@@ -194,6 +194,9 @@ const Footer: React.FC = () => {
                     )}
                     {settings.footer?.contactInfo?.location && (
                          <li className="flex items-start"><MapPinIcon className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" /><span className="text-sm text-brand-bg/70">{settings.footer.contactInfo.location}</span></li>
+                    )}
+                    {settings.footer?.contactInfo?.timing && (
+                         <li className="flex items-start"><ClockIcon className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" /><span className="text-sm text-brand-bg/70">{settings.footer.contactInfo.timing}</span></li>
                     )}
                 </ul>
               </div>
