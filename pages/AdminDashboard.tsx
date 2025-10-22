@@ -1,8 +1,8 @@
-import React, { useEffect, useState, FC, useMemo } from 'react';
+import React, { useEffect, useState, FC, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { db } from '../firebase';
-import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings, EmbedScrollerSettings, EmbedSlide, SocialLoginSettings } from '../types';
+import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings, EmbedScrollerSettings, EmbedSlide, SocialLoginSettings, AnnouncementBarSettings, StructuredDescriptionItem, ProductOffer, HeroImageStyles } from '../types';
 import { allProducts as staticProducts, initialCategories } from '../constants';
 import { XIcon, TrashIcon, PlusIcon, ArrowRightIcon, ChevronDownIcon, PhoneIcon, MailIcon, CartIcon, SparkleIcon, StarIcon, LeafIcon } from '../components/Icons';
 
@@ -58,6 +58,27 @@ const uploadFile = async (file: File): Promise<string> => {
     }
 };
 
+const saveImageUrlToGallery = async (url: string): Promise<void> => {
+    if (!url || !url.startsWith('http')) return;
+    try {
+        const newImageRef = db.ref('uploaded_images').push();
+        await newImageRef.set({
+            url: url,
+            uploadedAt: window.firebase.database.ServerValue.TIMESTAMP
+        });
+    } catch (error) {
+        console.error("Failed to save image URL to gallery", error);
+    }
+};
+
+const uploadAndSaveFile = async (file: File): Promise<string> => {
+    const url = await uploadFile(file);
+    if (url) {
+        await saveImageUrlToGallery(url);
+    }
+    return url;
+};
+
 
 // --- Reusable UI Components ---
 const ConfirmationModal: FC<{ isOpen: boolean, onClose: () => void, onConfirm: () => void, title: string, message: string }> = ({ isOpen, onClose, onConfirm, title, message }) => {
@@ -98,18 +119,19 @@ const CollapsibleSection: FC<{ title: string, children: React.ReactNode, startsO
 };
 
 // --- Product Management Components ---
-const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToEdit: Product | null, categories: Category[] }> = ({ isOpen, onClose, productToEdit, categories }) => {
+const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToEdit: Product | null, categories: Category[], allProducts: Product[], openImagePicker: (callback: (url: string) => void) => void }> = ({ isOpen, onClose, productToEdit, categories, allProducts, openImagePicker }) => {
     const [formData, setFormData] = useState<Partial<Product>>({});
     const [qna, setQna] = useState<QnA[]>([]);
     const [loading, setLoading] = useState(false);
     const [imageUrls, setImageUrls] = useState<string[]>([]);
     const [newImageUrl, setNewImageUrl] = useState('');
-    const [uploading, setUploading] = useState(false);
 
     // States for sub-forms (tags, variants, qna)
     const [tagInput, setTagInput] = useState({ text: '', color: '#6B7F73' });
-    const [variantInput, setVariantInput] = useState({ name: '', price: 0, oldPrice: 0, stock: 10 });
+    const [variantInput, setVariantInput] = useState<Omit<ProductVariant, 'id'>>({ name: '', price: 0, oldPrice: 0, stock: 10, image: '' });
     const [qnaInput, setQnaInput] = useState({ question: '', answer: '' });
+    const [descItemInput, setDescItemInput] = useState({ title: '', content: '' });
+
 
     useEffect(() => {
         if (productToEdit) {
@@ -122,7 +144,7 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
                 setQna(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
             });
         } else {
-            setFormData({ name: '', price: 0, stock: 10, category: categories[0]?.name || '', subcategory: '', description: '', images: [], tags: {}, variants: {}, isPopular: false, isVisible: true, hasCustomOverlay: false });
+            setFormData({ name: '', price: 0, stock: 10, category: categories[0]?.name || '', subcategory: '', description: '', images: [], tags: {}, variants: {}, isPopular: false, isVisible: true, hasCustomOverlay: false, recommendations: {}, structuredDescription: {}, offer: { enabled: false, title: '', highlightColor: '#EF4444', textColor: '#FFFFFF' } });
             setImageUrls([]);
             setQna([]);
         }
@@ -139,6 +161,21 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
 
         setFormData(newFormData);
     };
+    
+    const handleOfferChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value, type } = e.target;
+        const isCheckbox = type === 'checkbox';
+        const checkedValue = (e.target as HTMLInputElement).checked;
+        const isNumber = type === 'number';
+
+        setFormData(p => ({
+            ...p,
+            offer: {
+                ...(p.offer as ProductOffer),
+                [name]: isCheckbox ? checkedValue : (isNumber ? Number(value) : value),
+            }
+        }));
+    };
 
     const addImageUrl = () => {
         if (newImageUrl && !imageUrls.includes(newImageUrl)) {
@@ -151,36 +188,27 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
         setImageUrls(prev => prev.filter(u => u !== url));
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setUploading(true);
-            try {
-                const newUrl = await uploadFile(e.target.files![0]);
-                setImageUrls(prev => [newUrl, ...prev]);
-            } catch (error) { alert("Image upload failed."); } 
-            finally { setUploading(false); e.target.value = ''; }
-        }
-    };
-
-    const handleSubFormAdd = (type: 'tags' | 'variants' | 'qna') => {
+    const handleSubFormAdd = (type: 'tags' | 'variants' | 'qna' | 'structuredDescription') => {
+        const newId = db.ref().push().key!;
         if (type === 'tags' && tagInput.text) {
-            const newId = db.ref().push().key!;
             setFormData(p => ({ ...p, tags: { ...p.tags, [newId]: tagInput } }));
             setTagInput({ text: '', color: '#6B7F73' });
         }
         if (type === 'variants' && variantInput.name) {
-             const newId = db.ref().push().key!;
              setFormData(p => ({ ...p, variants: { ...p.variants, [newId]: variantInput } }));
-             setVariantInput({ name: '', price: 0, oldPrice: 0, stock: 10 });
+             setVariantInput({ name: '', price: 0, oldPrice: 0, stock: 10, image: '' });
         }
         if (type === 'qna' && qnaInput.question && qnaInput.answer) {
-            const newId = db.ref().push().key!;
             setQna(prev => [...prev, { ...qnaInput, id: newId }]);
             setQnaInput({ question: '', answer: '' });
         }
+        if (type === 'structuredDescription' && descItemInput.title && descItemInput.content) {
+            setFormData(p => ({ ...p, structuredDescription: { ...p.structuredDescription, [newId]: descItemInput }}));
+            setDescItemInput({ title: '', content: '' });
+        }
     };
 
-    const handleSubFormRemove = (type: 'tags' | 'variants' | 'qna', id: string) => {
+    const handleSubFormRemove = (type: 'tags' | 'variants' | 'qna' | 'structuredDescription', id: string) => {
         if (type === 'tags') {
             const newTags = { ...formData.tags };
             delete newTags[id];
@@ -194,6 +222,25 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
         if (type === 'qna') {
             setQna(prev => prev.filter(item => item.id !== id));
         }
+        if (type === 'structuredDescription') {
+            const newDesc = { ...formData.structuredDescription };
+            delete newDesc[id];
+            setFormData(p => ({...p, structuredDescription: newDesc}));
+        }
+    };
+    
+    const handleRecommendationToggle = (type: 'product' | 'category', id: string) => {
+        const path = type === 'product' ? 'relatedProductIds' : 'relatedCategoryIds';
+        const currentIds = formData.recommendations?.[path] || {};
+        const newIds = { ...currentIds };
+        if (newIds[id]) delete newIds[id]; else newIds[id] = true;
+        setFormData(p => ({
+            ...p,
+            recommendations: {
+                ...(p.recommendations || {}),
+                [path]: newIds
+            }
+        }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -232,18 +279,37 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 animate-fade-in-up">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto scrollbar-hide">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="flex justify-between items-center"><h3 className="text-xl font-bold">{productToEdit ? 'Edit Product' : 'Add New Product'}</h3><button type="button" onClick={onClose}><XIcon className="w-6 h-6"/></button></div>
                     <input name="name" type="text" placeholder="Product Name" value={formData.name || ''} onChange={handleChange} className={inputStyle}/>
                     <div className="p-4 border rounded-lg space-y-2"> {/* Images */}
                         <label className="block text-sm font-medium text-gray-700">Images</label>
-                        <div className="flex items-center space-x-2"><input type="text" placeholder="Paste Image URL" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} className={`${inputStyle} flex-grow`}/><button type="button" onClick={addImageUrl} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Add URL</button></div>
-                        <div className="text-center text-sm text-gray-500">OR</div>
-                        <div><label htmlFor="product-image-upload" className={`w-full text-center cursor-pointer block p-2 border-2 border-dashed rounded-lg ${uploading ? 'bg-gray-100' : 'hover:bg-gray-50'}`}>{uploading ? 'Uploading...' : 'Upload an Image'}</label><input id="product-image-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploading}/></div>
+                        <div className="flex items-center space-x-2">
+                           <input type="text" placeholder="Paste Image URL" value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)} className={`${inputStyle} flex-grow`}/>
+                           <button type="button" onClick={addImageUrl} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Add URL</button>
+                           <button type="button" onClick={() => openImagePicker(url => setImageUrls(prev => [url, ...prev]))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                        </div>
                         <div className="mt-2 flex flex-wrap gap-2">{imageUrls.map((url, i) => (<div key={i} className="relative"><img src={url} className="w-20 h-20 object-cover rounded"/><button type="button" onClick={() => removeImageUrl(url)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">X</button></div>))}</div>
                     </div>
-                    <textarea name="description" placeholder="Description (HTML is supported)" value={formData.description || ''} onChange={handleChange} className={inputStyle} rows={3}/>
+                    
+                    <div className="p-4 border rounded-lg space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">Structured Description (Accordion on Product Page)</label>
+                        {formData.structuredDescription && Object.entries(formData.structuredDescription).map(([id, item]: [string, any]) => (
+                            <div key={id} className="border-b pb-2">
+                                <input type="text" value={item.title} onChange={(e) => setFormData(p => ({...p, structuredDescription: {...p.structuredDescription, [id]: {...item, title: e.target.value}} }))} className={`${inputStyle} font-semibold mb-1`} />
+                                <textarea value={item.content} onChange={(e) => setFormData(p => ({...p, structuredDescription: {...p.structuredDescription, [id]: {...item, content: e.target.value}} }))} className={inputStyle} rows={3} />
+                                <button type="button" onClick={() => handleSubFormRemove('structuredDescription', id)} className="text-xs text-red-500 hover:underline mt-1">Remove</button>
+                            </div>
+                        ))}
+                         <div className="flex items-end gap-2 pt-2">
+                            <div className="flex-1"><input type="text" placeholder="Title (e.g., Key Ingredients)" value={descItemInput.title} onChange={e => setDescItemInput(p=>({...p, title: e.target.value}))} className={inputStyle}/></div>
+                            <div className="flex-1"><textarea placeholder="Content (HTML supported)" value={descItemInput.content} onChange={e => setDescItemInput(p=>({...p, content: e.target.value}))} className={inputStyle} rows={1}/></div>
+                            <button type="button" onClick={() => handleSubFormAdd('structuredDescription')} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 h-10">Add</button>
+                        </div>
+                    </div>
+                    <textarea name="description" placeholder="Fallback Description (for old systems, optional)" value={formData.description || ''} onChange={handleChange} className={inputStyle} rows={2}/>
+
                     <div className="grid grid-cols-3 gap-4">
                         <input name="price" type="number" step="0.01" placeholder="Price" value={formData.price ?? ''} onChange={handleChange} className={inputStyle}/>
                         <input name="oldPrice" type="number" step="0.01" placeholder="Old Price (Optional)" value={formData.oldPrice || ''} onChange={handleChange} className={inputStyle}/>
@@ -253,6 +319,44 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
                         <select name="category" value={formData.category || ''} onChange={handleChange} className={inputStyle}><option value="" disabled>Select a category</option>{categories.map(cat => (<option key={cat.id} value={cat.name}>{cat.name}</option>))}</select>
                          {availableSubcategories.length > 0 && (<select name="subcategory" value={formData.subcategory || ''} onChange={handleChange} className={inputStyle}><option value="">Select subcategory (optional)</option>{availableSubcategories.map(sub => (<option key={sub.id} value={sub.name}>{sub.name}</option>))}</select>)}
                     </div>
+
+                    <div className="p-4 border rounded-lg space-y-3"> {/* Product Offer */}
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                            <input type="checkbox" name="enabled" checked={formData.offer?.enabled || false} onChange={handleOfferChange} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
+                            <span className="text-sm font-medium text-gray-700">Enable Offer for this Product</span>
+                        </label>
+                        {formData.offer?.enabled && (
+                            <div className="space-y-3 animate-fade-in-up">
+                                <input name="title" type="text" placeholder="Offer Title (e.g., '20% OFF!')" value={formData.offer.title || ''} onChange={handleOfferChange} className={inputStyle}/>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input name="discountPercentage" type="number" placeholder="Discount %" value={formData.offer.discountPercentage || ''} onChange={handleOfferChange} className={inputStyle} disabled={!!formData.offer.discountAmount} />
+                                    <input name="discountAmount" type="number" placeholder="Discount Amount (₹)" value={formData.offer.discountAmount || ''} onChange={handleOfferChange} className={inputStyle} disabled={!!formData.offer.discountPercentage} />
+                                </div>
+                                <div>
+                                    <label className="text-xs">Countdown End Date (Optional)</label>
+                                    <input name="endDate" type="datetime-local" value={formData.offer.endDate || ''} onChange={handleOfferChange} className={inputStyle}/>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="text-xs">Badge Color</label><input name="highlightColor" type="color" value={formData.offer.highlightColor || '#EF4444'} onChange={handleOfferChange} className={`${inputStyle} h-10 p-1`}/></div>
+                                    <div><label className="text-xs">Badge Text Color</label><input name="textColor" type="color" value={formData.offer.textColor || '#FFFFFF'} onChange={handleOfferChange} className={`${inputStyle} h-10 p-1`}/></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <CollapsibleSection title="Extra Media">
+                        <div className="space-y-4">
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">Video URL</label>
+                                <input name="videoUrl" type="text" placeholder="e.g., YouTube, Vimeo, or direct .mp4 link" value={formData.videoUrl || ''} onChange={handleChange} className={inputStyle}/>
+                            </div>
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">Social Media Post URL</label>
+                                <input name="socialMediaLink" type="text" placeholder="e.g., Instagram Post Link" value={formData.socialMediaLink || ''} onChange={handleChange} className={inputStyle}/>
+                            </div>
+                        </div>
+                    </CollapsibleSection>
+
                     <div className="p-4 border rounded-lg space-y-3"> {/* Tags */}
                         <label className="block text-sm font-medium text-gray-700">Tags</label>
                         <div className="flex items-center space-x-2"><input type="text" placeholder="Tag Text" value={tagInput.text} onChange={e => setTagInput(p=>({...p, text: e.target.value}))} className={inputStyle} /><input type="color" value={tagInput.color} onChange={e => setTagInput(p=>({...p, color: e.target.value}))} className={`${inputStyle} h-10 p-1 w-16 cursor-pointer`} /><button type="button" onClick={() => handleSubFormAdd('tags')} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Add</button></div>
@@ -260,8 +364,12 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
                     </div>
                     <div className="p-4 border rounded-lg space-y-3"> {/* Variants */}
                         <label className="block text-sm font-medium text-gray-700">Variants (Optional)</label>
-                        <div className="grid grid-cols-5 gap-2"><input type="text" placeholder="Name (e.g., 50ml)" value={variantInput.name} onChange={e => setVariantInput(p=>({...p, name: e.target.value}))} className={inputStyle}/><input type="number" placeholder="Price" value={variantInput.price} onChange={e => setVariantInput(p=>({...p, price: Number(e.target.value)}))} className={inputStyle}/><input type="number" placeholder="Old Price" value={variantInput.oldPrice} onChange={e => setVariantInput(p=>({...p, oldPrice: Number(e.target.value)}))} className={inputStyle}/><input type="number" placeholder="Stock" value={variantInput.stock} onChange={e => setVariantInput(p=>({...p, stock: Number(e.target.value)}))} className={inputStyle}/><button type="button" onClick={() => handleSubFormAdd('variants')} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Add</button></div>
-                        <div className="space-y-1">{formData.variants && Object.entries(formData.variants).map(([id, v]: [string, any]) => (<div key={id} className="flex items-center gap-2 text-sm"><span className="font-semibold w-1/4">{v.name}</span><span className="w-1/4">₹{v.price}</span><span className="w-1/4">Stock: {v.stock}</span><button type="button" onClick={() => handleSubFormRemove('variants', id)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4"/></button></div>))}</div>
+                        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_1fr_2fr_auto] gap-2 items-end"><input type="text" placeholder="Name (e.g., 50ml)" value={variantInput.name} onChange={e => setVariantInput(p=>({...p, name: e.target.value}))} className={inputStyle}/><input type="number" placeholder="Price" value={variantInput.price} onChange={e => setVariantInput(p=>({...p, price: Number(e.target.value)}))} className={inputStyle}/><input type="number" placeholder="Old Price" value={variantInput.oldPrice} onChange={e => setVariantInput(p=>({...p, oldPrice: Number(e.target.value)}))} className={inputStyle}/><input type="number" placeholder="Stock" value={variantInput.stock} onChange={e => setVariantInput(p=>({...p, stock: Number(e.target.value)}))} className={inputStyle}/>
+                           <div className="flex"><input type="text" placeholder="Image URL" value={variantInput.image} onChange={e => setVariantInput(p=>({...p, image: e.target.value}))} className={`${inputStyle} rounded-r-none`} /><button type="button" onClick={() => openImagePicker((url) => setVariantInput(p=>({...p, image: url})))} className="px-3 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 text-sm">...</button></div>
+                        <button type="button" onClick={() => handleSubFormAdd('variants')} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 h-10">Add</button></div>
+                        <div className="space-y-1">{formData.variants && Object.entries(formData.variants).map(([id, v]: [string, any]) => (<div key={id} className="flex items-center gap-2 text-sm p-1 bg-gray-50 rounded"><img src={v.image || 'https://via.placeholder.com/40'} alt="" className="w-8 h-8 object-cover rounded" /><span className="font-semibold w-1/4">{v.name}</span><span className="w-1/4">₹{v.price}</span><span className="w-1/4">Stock: {v.stock}</span>
+                        <input type="text" readOnly value={v.image || ''} className="text-xs p-1 bg-white border rounded w-1/4" /><button type="button" onClick={() => navigator.clipboard.writeText(v.image)} className="text-xs p-1 bg-gray-200 rounded">Copy</button>
+                        <button type="button" onClick={() => handleSubFormRemove('variants', id)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4"/></button></div>))}</div>
                     </div>
                      <div className="p-4 border rounded-lg space-y-3"> {/* Q&A */}
                         <label className="block text-sm font-medium text-gray-700">Questions & Answers</label>
@@ -269,6 +377,33 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
                         <input type="text" placeholder="Question" value={qnaInput.question} onChange={e => setQnaInput(p=>({...p, question: e.target.value}))} className={inputStyle}/>
                         <textarea placeholder="Answer" value={qnaInput.answer} onChange={e => setQnaInput(p=>({...p, answer: e.target.value}))} className={inputStyle} rows={2}/>
                         <button type="button" onClick={() => handleSubFormAdd('qna')} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-sm">Add Q&A</button>
+                    </div>
+                    <div className="p-4 border rounded-lg space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">Recommendations ("You Might Also Like")</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 className="font-semibold mb-1">Select Products</h4>
+                                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border p-2 rounded-md">
+                                    {allProducts.filter(p => p.id !== productToEdit?.id).map(p => (
+                                        <label key={p.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-50 cursor-pointer text-sm">
+                                            <input type="checkbox" checked={!!formData.recommendations?.relatedProductIds?.[String(p.id)]} onChange={() => handleRecommendationToggle('product', String(p.id))} className="h-4 w-4 text-brand-green border-gray-300 rounded focus:ring-brand-green"/>
+                                            <span>{p.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold mb-1">Select Categories</h4>
+                                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border p-2 rounded-md">
+                                    {categories.map(c => (
+                                        <label key={c.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-50 cursor-pointer text-sm">
+                                            <input type="checkbox" checked={!!formData.recommendations?.relatedCategoryIds?.[String(c.id)]} onChange={() => handleRecommendationToggle('category', String(c.id))} className="h-4 w-4 text-brand-green border-gray-300 rounded focus:ring-brand-green"/>
+                                            <span>{c.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center"><input id="isPopular" name="isPopular" type="checkbox" checked={formData.isPopular || false} onChange={handleChange} className="h-4 w-4 text-brand-green border-gray-300 rounded focus:ring-brand-green" /><label htmlFor="isPopular" className="ml-2 block text-sm text-gray-900">Mark as Popular Product</label></div>
@@ -282,13 +417,16 @@ const AddEditProductModal: FC<{ isOpen: boolean, onClose: () => void, productToE
     );
 };
 
-const ProductsManager: FC = () => {
+const ProductsManager: FC<{ openImagePicker: (callback: (url: string) => void) => void }> = ({ openImagePicker }) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [productToEdit, setProductToEdit] = useState<Product | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [productsToImport, setProductsToImport] = useState<Product[] | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const productsRef = db.ref('products');
@@ -328,14 +466,79 @@ const ProductsManager: FC = () => {
         try { await db.ref(`products/${product.id}/${field}`).set(!currentValue); } 
         catch (error) { alert("Failed to update status."); }
     };
+    
+    const handleExportProducts = () => {
+        const dataStr = JSON.stringify(products, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+        const exportFileDefaultName = 'aurashka_products.json';
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+    };
+
+    const handleImportFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target?.result;
+                    const parsedProducts = JSON.parse(content as string);
+                    if (Array.isArray(parsedProducts)) {
+                        setProductsToImport(parsedProducts);
+                        setIsImportModalOpen(true);
+                    } else {
+                        alert('Invalid JSON file format. Expected an array of products.');
+                    }
+                } catch (error) {
+                    alert('Error parsing JSON file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+        // Reset file input
+        if(fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const confirmImport = async () => {
+        if (!productsToImport) return;
+        const updates: { [key: string]: any } = {};
+        productsToImport.forEach(product => {
+            const productId = product.id || db.ref('products').push().key;
+            if (productId) {
+                updates[`/products/${productId}`] = { ...product, id: productId };
+            }
+        });
+
+        try {
+            await db.ref().update(updates);
+            alert(`${productsToImport.length} products imported successfully.`);
+        } catch (error) {
+            console.error(error);
+            alert('An error occurred during import.');
+        } finally {
+            setIsImportModalOpen(false);
+            setProductsToImport(null);
+        }
+    };
 
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-serif font-bold text-brand-dark">Products ({products.length})</h1><button onClick={openAddModal} className="bg-brand-green text-white px-5 py-2 rounded-full font-medium hover:bg-opacity-90 flex items-center space-x-2 shadow-sm transition-transform hover:scale-105"><PlusIcon className="w-5 h-5"/><span>Add New Product</span></button></div>
+            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+                <h1 className="text-3xl font-serif font-bold text-brand-dark">Products ({products.length})</h1>
+                <div className="flex gap-2">
+                     <input type="file" ref={fileInputRef} onChange={handleImportFileSelect} accept=".json" className="hidden"/>
+                    <button onClick={() => fileInputRef.current?.click()} className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-blue-600">Import JSON</button>
+                    <button onClick={handleExportProducts} className="bg-gray-700 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-800">Export JSON</button>
+                    <button onClick={openAddModal} className="bg-brand-green text-white px-5 py-2 rounded-full font-medium hover:bg-opacity-90 flex items-center space-x-2 shadow-sm transition-transform hover:scale-105"><PlusIcon className="w-5 h-5"/><span>Add New Product</span></button>
+                </div>
+            </div>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th scope="col" className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th><th scope="col" className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th><th scope="col" className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th><th scope="col" className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th><th scope="col" className="py-3 px-6 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Visible</th><th scope="col" className="py-3 px-6 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Popular</th><th scope="col" className="py-3 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{products.map(product => (<tr key={product.id} className={`${product.isVisible === false ? 'bg-gray-50 opacity-60' : ''}`}><td className="py-4 px-6"><img src={product.images?.[0]} alt={product.name} className="w-12 h-12 object-cover rounded-md"/></td><td className="py-4 px-6 font-medium whitespace-nowrap text-gray-900">{product.name}</td><td className="py-4 px-6 whitespace-nowrap text-gray-600">₹{(product.price).toFixed(2)}</td><td className="py-4 px-6 whitespace-nowrap text-gray-600">{product.stock}</td><td className="py-4 px-6 text-center"><label htmlFor={`visible-toggle-${product.id}`} className="relative inline-flex items-center cursor-pointer"><input type="checkbox" id={`visible-toggle-${product.id}`} className="sr-only peer" checked={product.isVisible !== false} onChange={() => handleToggle(product, 'isVisible')} /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></label></td><td className="py-4 px-6 text-center"><label htmlFor={`popular-toggle-${product.id}`} className="relative inline-flex items-center cursor-pointer"><input type="checkbox" id={`popular-toggle-${product.id}`} className="sr-only peer" checked={!!product.isPopular} onChange={() => handleToggle(product, 'isPopular')} /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></label></td><td className="py-4 px-6 space-x-2 whitespace-nowrap text-right text-sm font-medium"><button onClick={() => openEditModal(product)} className="text-brand-green hover:text-brand-dark">Edit</button><button onClick={() => openDeleteModal(product)} className="text-red-600 hover:text-red-800">Delete</button></td></tr>))}</tbody></table></div>
-            <AddEditProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} productToEdit={productToEdit} categories={categories} />
+            <AddEditProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} productToEdit={productToEdit} categories={categories} allProducts={products} openImagePicker={openImagePicker} />
             <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDelete} title="Delete Product" message={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`} />
+            <ConfirmationModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} onConfirm={confirmImport} title="Confirm Product Import" message={`You are about to import ${productsToImport?.length || 0} products. This will add new products and overwrite existing products with the same ID. This action cannot be undone.`} />
         </div>
     );
 };
@@ -372,26 +575,15 @@ const UsersManager: FC = () => {
 };
 
 // --- Category Management Components ---
-const AddEditCategoryModal: FC<{ isOpen: boolean, onClose: () => void, categoryToEdit: Category | null }> = ({ isOpen, onClose, categoryToEdit }) => {
+const AddEditCategoryModal: FC<{ isOpen: boolean, onClose: () => void, categoryToEdit: Category | null, openImagePicker: (callback: (url: string) => void) => void }> = ({ isOpen, onClose, categoryToEdit, openImagePicker }) => {
     const [formData, setFormData] = useState<Partial<Category>>({ name: '', image: '', subcategories: [] });
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
     const [subcatInput, setSubcatInput] = useState('');
 
     useEffect(() => {
         setFormData(categoryToEdit || { name: '', image: '', subcategories: [] });
     }, [categoryToEdit, isOpen]);
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setUploading(true);
-            try {
-                const imageUrl = await uploadFile(e.target.files[0]);
-                setFormData(p => ({...p, image: imageUrl}));
-            } catch (err) { alert('Image upload failed'); }
-            finally { setUploading(false); }
-        }
-    }
     const handleAddSubcategory = () => {
         if (subcatInput.trim() === '') return;
         const newSub: SubCategory = { id: db.ref().push().key!, name: subcatInput.trim() };
@@ -425,9 +617,8 @@ const AddEditCategoryModal: FC<{ isOpen: boolean, onClose: () => void, categoryT
                 <div className="flex justify-between items-center"><h3 className="text-xl font-bold">{categoryToEdit ? 'Edit Category' : 'Add Category'}</h3><button type="button" onClick={onClose}><XIcon className="w-6 h-6"/></button></div>
                 <div className="text-center">
                     <img src={formData.image || 'https://via.placeholder.com/128'} alt="Category preview" className="w-32 h-32 object-cover rounded-full mx-auto mb-2 border" />
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                    {uploading && <p className="text-xs text-blue-500 mt-1">Uploading image...</p>}
-                    <button type="button" onClick={()=>setFormData(p=>({...p, image: ''}))} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
+                    <button type="button" onClick={() => openImagePicker((url) => setFormData(p => ({...p, image: url})))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">Browse Images</button>
+                    <button type="button" onClick={()=>setFormData(p=>({...p, image: ''}))} className="text-xs text-red-500 hover:underline mt-1 ml-2">Remove Image</button>
                 </div>
                 <input type="text" placeholder="Category Name" value={formData.name || ''} onChange={e => setFormData(p => ({ ...p, name: e.target.value }))} className={inputStyle}/>
                 <input type="text" placeholder="Or paste Image URL" value={formData.image || ''} onChange={e => setFormData(p => ({ ...p, image: e.target.value }))} className={inputStyle}/>
@@ -442,7 +633,7 @@ const AddEditCategoryModal: FC<{ isOpen: boolean, onClose: () => void, categoryT
     );
 };
 
-const CategoriesManager: FC = () => {
+const CategoriesManager: FC<{ openImagePicker: (callback: (url: string) => void) => void }> = ({ openImagePicker }) => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
     const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
@@ -466,7 +657,7 @@ const CategoriesManager: FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6"><h1 className="text-3xl font-serif font-bold text-brand-dark">Categories ({categories.length})</h1><button onClick={openAddModal} className="bg-brand-green text-white px-5 py-2 rounded-full font-medium hover:bg-opacity-90 flex items-center space-x-2 shadow-sm transition-transform hover:scale-105"><PlusIcon className="w-5 h-5"/><span>Add New Category</span></button></div>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">Image</th><th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">Name</th><th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">Subcategories</th><th className="py-3 px-6 text-right text-xs font-medium text-gray-500 uppercase">Actions</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{categories.map(cat => (<tr key={cat.id}><td className="py-4 px-6"><img src={cat.image} alt={cat.name} className="w-12 h-12 object-cover rounded-md"/></td><td className="py-4 px-6 font-medium whitespace-nowrap text-gray-900">{cat.name}</td><td className="py-4 px-6 text-xs text-gray-500">{(cat.subcategories || []).map(s => s.name).join(', ')}</td><td className="py-4 px-6 space-x-2 whitespace-nowrap text-right text-sm font-medium"><button onClick={() => openEditModal(cat)} className="text-brand-green hover:text-brand-dark">Edit</button><button onClick={() => setCategoryToDelete(cat)} className="text-red-600 hover:text-red-800">Delete</button></td></tr>))}</tbody></table></div>
-            <AddEditCategoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} categoryToEdit={categoryToEdit} />
+            <AddEditCategoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} categoryToEdit={categoryToEdit} openImagePicker={openImagePicker} />
             <ConfirmationModal isOpen={!!categoryToDelete} onClose={() => setCategoryToDelete(null)} onConfirm={handleDelete} title="Delete Category" message={`Are you sure you want to delete "${categoryToDelete?.name}"?`} />
         </div>
     );
@@ -474,15 +665,33 @@ const CategoriesManager: FC = () => {
 
 
 // --- Homepage Settings Component ---
-const HeroPreview: FC<{ settings: Partial<HeroSettings> }> = ({ settings }) => {
+const HeroPreview: FC<{ settings: Partial<HeroSettings>, previewMode: 'desktop' | 'mobile' }> = ({ settings, previewMode }) => {
     if (!settings) return null;
+
+    const styles: Partial<HeroImageStyles> = (previewMode === 'desktop' ? settings.imageStyles?.desktop : settings.imageStyles?.mobile) || {};
+    const zoom = styles.zoom || 100;
+    const focusX = styles.focusX ?? 50;
+    const focusY = styles.focusY ?? 50;
+    const focus = `${focusX}% ${focusY}%`;
+
+    const imageStyle: React.CSSProperties = {
+        transform: `scale(${zoom / 100})`,
+        objectPosition: focus,
+        transition: 'transform 0.3s ease-out, object-position 0.3s ease-out',
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+    };
+    
+    const containerClasses = `relative flex items-center rounded-md overflow-hidden bg-gray-200 transition-all duration-300 ease-in-out ${previewMode === 'mobile' ? 'w-[250px] h-[445px] mx-auto border-8 border-gray-800 rounded-[2rem]' : 'w-full min-h-[250px]'}`;
+
     return (
         <div className="mt-4 border p-4 rounded-lg relative">
             <h3 className="text-sm font-semibold mb-2">Live Preview</h3>
-            <div className="relative pt-12 pb-12 flex items-center min-h-[250px] rounded-md overflow-hidden">
-                {settings.image && <img src={settings.image} alt="preview" className="absolute inset-0 w-full h-full object-cover"/>}
+            <div className={containerClasses}>
+                {settings.image && <img src={settings.image} alt="preview" style={imageStyle} />}
                 <div className="absolute inset-0" style={{ backgroundColor: settings.overlayColor || 'rgba(255, 255, 255, 0.5)' }}></div>
-                <div className="relative max-w-xl mx-auto px-4 w-full">
+                <div className="relative max-w-xl mx-auto px-4 w-full scale-50 md:scale-75 origin-left">
                     <p className="font-script text-brand-green" style={{ fontSize: `${settings.fontSizes?.preheadline || 24}px` }}>{settings.preheadline || 'Pre-headline'}</p>
                     <h1 className="mt-1 font-extrabold font-serif text-brand-dark tracking-tight" style={{ fontSize: `${settings.fontSizes?.headline || 48}px`, lineHeight: 1.1 }}>{settings.headline || 'Headline'}</h1>
                     <p className="mt-3 text-sm text-gray-600" style={{ fontSize: `${settings.fontSizes?.subheadline || 16}px` }}>{settings.subheadline || 'Sub-headline text will go here.'}</p>
@@ -529,7 +738,7 @@ const EmbedScrollerPreview: FC<{ section: EmbedScrollerSettings }> = ({ section 
 const getInitialHomepageSettings = () => ({
     productShowcaseSection: { 
         enabled: true, 
-        image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", 
+        image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", 
         text: "Discover Yourself", 
         location: 'default', 
         order: 20 
@@ -551,13 +760,13 @@ const getInitialHomepageSettings = () => ({
     decorativeOverlays: {} as { hero?: DecorativeOverlay, productShowcase?: DecorativeOverlay },
 });
 
-const HomepageSettingsManager: FC = () => {
+const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) => void) => void }> = ({ openImagePicker }) => {
     const [settings, setSettings] = useState(getInitialHomepageSettings());
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState<string | null>(null);
     const [overlayOpacity, setOverlayOpacity] = useState(50);
+    const [heroPreviewMode, setHeroPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
     useEffect(() => {
         const settingsRef = db.ref('site_settings');
@@ -622,15 +831,6 @@ const HomepageSettingsManager: FC = () => {
         handleSettingsChange('heroSection.overlayColor', `rgba(255, 255, 255, ${e.target.value / 100})`);
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        if (e.target.files && e.target.files[0]) {
-            setUploading(field);
-            try { handleSettingsChange(field, await uploadFile(e.target.files[0])); } 
-            catch (error) { alert("Image upload failed."); } 
-            finally { setUploading(null); }
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -645,10 +845,15 @@ const HomepageSettingsManager: FC = () => {
     return (
         <div>
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex justify-between items-center"><h1 className="text-3xl font-serif font-bold text-brand-dark">Homepage Settings</h1><button type="submit" disabled={loading || !!uploading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">{loading ? 'Saving...' : (uploading ? `Uploading...` : 'Save Homepage Settings')}</button></div>
+                <div className="flex justify-between items-center"><h1 className="text-3xl font-serif font-bold text-brand-dark">Homepage Settings</h1><button type="submit" disabled={loading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">{loading ? 'Saving...' : 'Save Homepage Settings'}</button></div>
 
                 <CollapsibleSection title="Hero Section (Top Banner)" startsOpen={true}>
-                    <div className="space-y-4 max-w-3xl"><div><label className="block text-sm font-medium text-gray-700">Background Image</label>{settings.heroSection?.image && <img src={settings.heroSection.image} alt="Hero preview" className="w-full h-48 object-cover rounded-md my-2 border bg-gray-100" />}<input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'heroSection.image')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" /><input type="text" value={settings.heroSection?.image || ''} onChange={e => handleSettingsChange('heroSection.image', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" /><button type="button" onClick={()=>handleSettingsChange('heroSection.image', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button></div><div><label className="block text-sm font-medium text-gray-700">Image Overlay Opacity (White)</label><div className="flex items-center space-x-4"><input type="range" min="0" max="100" value={overlayOpacity} onChange={handleOpacityChange} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /><span className="text-sm text-gray-600">{overlayOpacity}%</span></div></div>
+                    <div className="space-y-4 max-w-3xl">
+                        <div className="flex gap-4">
+                            <input type="text" value={settings.heroSection?.image || ''} onChange={e => handleSettingsChange('heroSection.image', e.target.value)} className={`${inputStyle} flex-grow`} placeholder="Paste image URL" />
+                            <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('heroSection.image', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700">Image Overlay Opacity (White)</label><div className="flex items-center space-x-4"><input type="range" min="0" max="100" value={overlayOpacity} onChange={handleOpacityChange} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" /><span className="text-sm text-gray-600">{overlayOpacity}%</span></div></div>
                     
                     <div className="p-3 border rounded-lg space-y-4">
                         <label className="block text-sm font-bold text-gray-700">Image Styling</label>
@@ -696,7 +901,11 @@ const HomepageSettingsManager: FC = () => {
                             </div>
                          </div>
                     </div>
-                    <HeroPreview settings={settings.heroSection} /></div>
+                    <div className="flex space-x-2">
+                        <button type="button" onClick={() => setHeroPreviewMode('desktop')} className={`px-4 py-2 text-sm rounded-md ${heroPreviewMode === 'desktop' ? 'bg-brand-green text-white' : 'bg-gray-200'}`}>Desktop Preview</button>
+                        <button type="button" onClick={() => setHeroPreviewMode('mobile')} className={`px-4 py-2 text-sm rounded-md ${heroPreviewMode === 'mobile' ? 'bg-brand-green text-white' : 'bg-gray-200'}`}>Mobile Preview</button>
+                    </div>
+                    <HeroPreview settings={settings.heroSection} previewMode={heroPreviewMode} /></div>
                 </CollapsibleSection>
                 
                 <CollapsibleSection title="Product Showcase Section">
@@ -707,7 +916,12 @@ const HomepageSettingsManager: FC = () => {
                         </label>
                         {settings.productShowcaseSection?.enabled && (
                             <div className="space-y-4 mt-4 animate-fade-in-up">
-                                <div><label className="block text-sm font-medium text-gray-700">Showcase Image</label><input type="text" value={settings.productShowcaseSection.image} onChange={e => handleSettingsChange('productShowcaseSection.image', e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'productShowcaseSection.image')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Showcase Image</label>
+                                <div className="flex gap-4">
+                                  <input type="text" value={settings.productShowcaseSection.image} onChange={e => handleSettingsChange('productShowcaseSection.image', e.target.value)} placeholder="Image URL" className={inputStyle} />
+                                  <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('productShowcaseSection.image', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                </div>
+                                </div>
                                 <div><label className="block text-sm font-medium text-gray-700">Showcase Text</label><input type="text" value={settings.productShowcaseSection.text} onChange={e => handleSettingsChange('productShowcaseSection.text', e.target.value)} placeholder="e.g. Discover Yourself" className={inputStyle} /></div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div><label className="block text-sm font-medium">Location on Homepage</label><select value={settings.productShowcaseSection.location || 'default'} onChange={e=>handleSettingsChange('productShowcaseSection.location', e.target.value)} className={inputStyle}><option value="top">Top (Below Categories)</option><option value="default">Default (Middle)</option><option value="bottom">Bottom (Above Footer)</option></select></div>
@@ -724,12 +938,9 @@ const HomepageSettingsManager: FC = () => {
                         {/* Hero Overlay */}
                         <div className="border p-4 rounded-lg space-y-3">
                             <h4 className="font-semibold text-gray-800">Hero Section Overlay</h4>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Overlay Image</label>
-                                {settings.decorativeOverlays?.hero?.url && <img src={settings.decorativeOverlays.hero.url} alt="Hero overlay preview" className="w-full h-32 object-contain rounded-md my-2 border bg-gray-100 p-2" />}
-                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.hero.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
-                                <input type="text" value={settings.decorativeOverlays?.hero?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.hero.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
-                                <button type="button" onClick={() => handleSettingsChange('decorativeOverlays.hero.url', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
+                            <div className="flex gap-4">
+                                <input type="text" value={settings.decorativeOverlays?.hero?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.hero.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Paste image URL" />
+                                <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('decorativeOverlays.hero.url', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Opacity ({Math.round((settings.decorativeOverlays?.hero?.opacity ?? 1) * 100)}%)</label>
@@ -739,12 +950,9 @@ const HomepageSettingsManager: FC = () => {
                         {/* Product Showcase Overlay */}
                         <div className="border p-4 rounded-lg space-y-3">
                             <h4 className="font-semibold text-gray-800">Product Showcase Overlay</h4>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Overlay Image</label>
-                                {settings.decorativeOverlays?.productShowcase?.url && <img src={settings.decorativeOverlays.productShowcase.url} alt="Showcase overlay preview" className="w-full h-32 object-contain rounded-md my-2 border bg-gray-100 p-2" />}
-                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'decorativeOverlays.productShowcase.url')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
-                                <input type="text" value={settings.decorativeOverlays?.productShowcase?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.productShowcase.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
-                                <button type="button" onClick={() => handleSettingsChange('decorativeOverlays.productShowcase.url', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
+                             <div className="flex gap-4">
+                                <input type="text" value={settings.decorativeOverlays?.productShowcase?.url || ''} onChange={e => handleSettingsChange('decorativeOverlays.productShowcase.url', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Paste image URL" />
+                                <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('decorativeOverlays.productShowcase.url', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Opacity ({Math.round((settings.decorativeOverlays?.productShowcase?.opacity ?? 1) * 100)}%)</label>
@@ -777,8 +985,10 @@ const HomepageSettingsManager: FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">Custom Frame Image (PNG)</label>
-                                    <input type="text" value={settings.categoryCardSettings?.frameImageUrl || ''} onChange={e => handleSettingsChange('categoryCardSettings.frameImageUrl', e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
-                                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'categoryCardSettings.frameImageUrl')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                                    <div className="flex gap-4">
+                                      <input type="text" value={settings.categoryCardSettings?.frameImageUrl || ''} onChange={e => handleSettingsChange('categoryCardSettings.frameImageUrl', e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
+                                      <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('categoryCardSettings.frameImageUrl', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                    </div>
                                 </div>
 
                                 <h4 className="font-semibold pt-4 border-t">Decoration Icon</h4>
@@ -795,8 +1005,10 @@ const HomepageSettingsManager: FC = () => {
                                 {settings.categoryCardSettings?.decorationIcon === 'custom' && (
                                      <div>
                                         <label className="block text-sm font-medium">Custom Icon Image (PNG)</label>
-                                        <input type="text" value={settings.categoryCardSettings?.customDecorationIconUrl || ''} onChange={e => handleSettingsChange('categoryCardSettings.customDecorationIconUrl', e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'categoryCardSettings.customDecorationIconUrl')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                                        <div className="flex gap-4">
+                                          <input type="text" value={settings.categoryCardSettings?.customDecorationIconUrl || ''} onChange={e => handleSettingsChange('categoryCardSettings.customDecorationIconUrl', e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
+                                          <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('categoryCardSettings.customDecorationIconUrl', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                        </div>
                                     </div>
                                 )}
                                 <div className="grid grid-cols-2 gap-4">
@@ -889,25 +1101,11 @@ const HomepageSettingsManager: FC = () => {
                                                <img src={author.image || 'https://via.placeholder.com/100'} alt="author" className="w-24 h-24 object-cover rounded-full border bg-gray-100" />
                                            </div>
                                            <div className="w-3/4 space-y-2">
-                                               <input
-                                                   type="text"
-                                                   value={author.image}
-                                                   onChange={e => handleSettingsChange(`testimonials.authors.${id}.image`, e.target.value)}
-                                                   placeholder="Image URL"
-                                                   className={inputStyle}
-                                               />
-                                               <input
-                                                   type="file" accept="image/*"
-                                                   onChange={e => handleImageUpload(e, `testimonials.authors.${id}.image`)}
-                                                   className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-                                               />
-                                               <input
-                                                   type="text"
-                                                   value={author.name}
-                                                   onChange={e => handleSettingsChange(`testimonials.authors.${id}.name`, e.target.value)}
-                                                   placeholder="Author Name"
-                                                   className={inputStyle}
-                                               />
+                                                <div className="flex gap-4">
+                                                    <input type="text" value={author.image} onChange={e => handleSettingsChange(`testimonials.authors.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle}/>
+                                                    <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange(`testimonials.authors.${id}.image`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                                </div>
+                                               <input type="text" value={author.name} onChange={e => handleSettingsChange(`testimonials.authors.${id}.name`, e.target.value)} placeholder="Author Name" className={inputStyle}/>
                                            </div>
                                        </div>
                                        <textarea
@@ -962,10 +1160,10 @@ const HomepageSettingsManager: FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Image</label>
-                                    {settings.usageSection.image && <img src={settings.usageSection.image} alt="Usage section preview" className="w-48 h-auto object-cover rounded-md my-2 border bg-gray-100" />}
-                                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'usageSection.image')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100" />
-                                    <input type="text" value={settings.usageSection.image || ''} onChange={e => handleSettingsChange('usageSection.image', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
-                                    <button type="button" onClick={() => handleSettingsChange('usageSection.image', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
+                                    <div className="flex gap-4">
+                                        <input type="text" value={settings.usageSection.image || ''} onChange={e => handleSettingsChange('usageSection.image', e.target.value)} className={`${inputStyle}`} placeholder="Or paste image URL" />
+                                        <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('usageSection.image', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -975,7 +1173,12 @@ const HomepageSettingsManager: FC = () => {
                  <CollapsibleSection title="Auto-Scrolling Posters">
                      <div className="max-w-3xl space-y-4">{/* Image Scroller */}
                         <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.imageScroller?.enabled || false} onChange={e => handleSettingsChange('imageScroller.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
-                         {settings.imageScroller?.enabled && <div className="space-y-4 mt-4">{settings.imageScroller.slides && Object.entries(settings.imageScroller.slides).map(([id, slide]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="flex items-start gap-4"><div className="w-1/3"><label className="block text-sm font-medium text-gray-700 mb-1">Poster Image</label><img src={slide.image || 'https://via.placeholder.com/150x200'} alt="poster" className="w-full aspect-[3/4] object-cover rounded border bg-gray-100" /></div><div className="w-2/3 space-y-2"><input type="text" value={slide.image} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" onChange={e => handleImageUpload(e, `imageScroller.slides.${id}.image`)} className="text-sm w-full"/><input type="text" value={slide.altText} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.altText`, e.target.value)} placeholder="Alt Text" className={inputStyle} /></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center"><select value={slide.linkType} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.linkType`, e.target.value)} className={inputStyle}><option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option></select><div>{slide.linkType === 'internal' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{slide.linkType === 'external' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{slide.linkType === 'product' && <select value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{slide.linkType === 'category' && <select value={slide.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`imageScroller.slides.${id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div></div><button type="button" onClick={() => handleRemove(`imageScroller.slides.${id}`)} className="text-sm text-red-600 hover:underline">Remove Slide</button></div>))}<button type="button" onClick={() => handleAdd('imageScroller.slides', { image: '', linkType: 'none', link: '' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button></div>}
+                         {settings.imageScroller?.enabled && <div className="space-y-4 mt-4">{settings.imageScroller.slides && Object.entries(settings.imageScroller.slides).map(([id, slide]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="flex items-start gap-4"><div className="w-1/3"><label className="block text-sm font-medium text-gray-700 mb-1">Poster Image</label><img src={slide.image || 'https://via.placeholder.com/150x200'} alt="poster" className="w-full aspect-[3/4] object-cover rounded border bg-gray-100" /></div><div className="w-2/3 space-y-2">
+                         <div className="flex gap-4">
+                            <input type="text" value={slide.image} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle} />
+                            <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange(`imageScroller.slides.${id}.image`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                         </div>
+                         <input type="text" value={slide.altText} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.altText`, e.target.value)} placeholder="Alt Text" className={inputStyle} /></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center"><select value={slide.linkType} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.linkType`, e.target.value)} className={inputStyle}><option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option></select><div>{slide.linkType === 'internal' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{slide.linkType === 'external' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{slide.linkType === 'product' && <select value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{slide.linkType === 'category' && <select value={slide.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`imageScroller.slides.${id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div></div><button type="button" onClick={() => handleRemove(`imageScroller.slides.${id}`)} className="text-sm text-red-600 hover:underline">Remove Slide</button></div>))}<button type="button" onClick={() => handleAdd('imageScroller.slides', { image: '', linkType: 'none', link: '' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button></div>}
                     </div>
                 </CollapsibleSection>
 
@@ -1033,9 +1236,10 @@ const HomepageSettingsManager: FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Title Image (optional, PNG)</label>
-                            <input type="text" value={section.titleImageUrl || ''} onChange={e => handleSettingsChange(`offerSections.${section.id}.titleImageUrl`, e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
-                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, `offerSections.${section.id}.titleImageUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                            {section.titleImageUrl && <button type="button" onClick={() => handleSettingsChange(`offerSections.${section.id}.titleImageUrl`, '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>}
+                            <div className="flex gap-4">
+                                <input type="text" value={section.titleImageUrl || ''} onChange={e => handleSettingsChange(`offerSections.${section.id}.titleImageUrl`, e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
+                                <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange(`offerSections.${section.id}.titleImageUrl`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                              <div><label className="block text-sm font-medium">Location on Homepage</label><select value={section.location || 'default'} onChange={e=>handleSettingsChange(`offerSections.${section.id}.location`, e.target.value)} className={inputStyle}><option value="top">Top (Below Categories)</option><option value="default">Default (Middle)</option><option value="bottom">Bottom (Above Bestsellers)</option></select></div>
@@ -1057,8 +1261,10 @@ const HomepageSettingsManager: FC = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Item Decoration Image (e.g., Garland)</label>
-                                        <input type="text" value={section.decorationImageUrl || ''} onChange={e => handleSettingsChange(`offerSections.${section.id}.decorationImageUrl`, e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, `offerSections.${section.id}.decorationImageUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                                        <div className="flex gap-4">
+                                          <input type="text" value={section.decorationImageUrl || ''} onChange={e => handleSettingsChange(`offerSections.${section.id}.decorationImageUrl`, e.target.value)} className={inputStyle} placeholder="Image URL (optional)" />
+                                          <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange(`offerSections.${section.id}.decorationImageUrl`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                                        </div>
                                     </div>
                                 </>
                              )}
@@ -1142,8 +1348,6 @@ const HomepageSettingsManager: FC = () => {
                         </button>
                     </div>
                 </CollapsibleSection>
-
-                 {/* Other sections with image remove buttons */}
             </form>
         </div>
     );
@@ -1249,11 +1453,9 @@ const DiwaliOverlayEditor: FC<{
     onSettingChange: (path: string, value: any) => void;
     basePath: string;
     themes: { name: Theme; label: string; color: string }[];
-}> = ({ label, settings, onSettingChange, basePath, themes }) => {
+    openImagePicker: (callback: (url: string) => void) => void;
+}> = ({ label, settings, onSettingChange, basePath, themes, openImagePicker }) => {
     const inputStyle = "w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green";
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        if(e.target.files?.[0]){ try{ onSettingChange(field, await uploadFile(e.target.files[0])); } catch { alert("Upload failed.")}}
-    }
 
     return (
         <div className="border p-4 rounded-lg space-y-4">
@@ -1270,13 +1472,17 @@ const DiwaliOverlayEditor: FC<{
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Image (Light Theme)</label>
-                        <input type="text" placeholder="Image URL for light theme" value={settings?.url || ''} onChange={e => onSettingChange(`${basePath}.url`, e.target.value)} className={inputStyle} />
-                        <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `${basePath}.url`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                        <div className="flex gap-4">
+                            <input type="text" placeholder="Image URL for light theme" value={settings?.url || ''} onChange={e => onSettingChange(`${basePath}.url`, e.target.value)} className={inputStyle} />
+                            <button type="button" onClick={() => openImagePicker((url) => onSettingChange(`${basePath}.url`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                        </div>
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700">Image (Dark Theme)</label>
-                        <input type="text" placeholder="Image URL for dark theme" value={settings?.darkUrl || ''} onChange={e => onSettingChange(`${basePath}.darkUrl`, e.target.value)} className={inputStyle} />
-                        <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `${basePath}.darkUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                        <div className="flex gap-4">
+                           <input type="text" placeholder="Image URL for dark theme" value={settings?.darkUrl || ''} onChange={e => onSettingChange(`${basePath}.darkUrl`, e.target.value)} className={inputStyle} />
+                           <button type="button" onClick={() => openImagePicker((url) => onSettingChange(`${basePath}.darkUrl`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                        </div>
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-700">Visible on themes:</label>
@@ -1300,625 +1506,569 @@ const DiwaliOverlayEditor: FC<{
     )
 }
 
-const getInitialThemeSettings = () => ({
+const getInitialSiteSettings = () => ({
     siteTitle: 'AURASHKA', 
-    logoUrl: '', 
+    logoUrl: 'https://i.ibb.co/WWK', 
     siteTitleImageUrl: '', 
     useImageForTitle: false, 
     activeTheme: 'light' as Theme, 
     themeColors: {light:{}, dark:{}, blue:{}, diwali:{}, 'diwali-dark': {}} as Partial<ThemeColors>, 
     header: { navLinks: {} as { [key: string]: NavLink } }, 
-    footer: { description: '', copyrightText: '', columns: {}, newsletter: { title: '', subtitle: '' }, contactInfo: {}, socialLinks: {}, socialIconSize: 24 } as Partial<FooterSettings>, 
-    productPage: { shippingReturnsInfo: '', buttons: { addToCart: {}, buyNow: {} } } as Partial<ProductPageSettings>, 
-    diwaliThemeSettings: {} as DiwaliThemeSettings, 
-    floatingDecorations: {} as { [key: string]: FloatingDecoration }, 
-    searchPage: { title: 'Search Our Products' }, 
-    enableGlobalCardOverlay: false,
+    footer: { description: '', copyrightText: '', columns: {}, newsletter: { title: '', subtitle: '' }, contactInfo: {}, socialLinks: {}, socialIconSize: 24 } as Partial<FooterSettings>,
+    diwaliThemeSettings: {} as Partial<DiwaliThemeSettings>,
+    floatingDecorations: {} as { [key: string]: FloatingDecoration },
+    headerOverlapImage: {} as Partial<HeaderOverlapImageSettings>,
+    bottomBlend: {} as Partial<BottomBlendSettings>,
+    socialLogin: {} as Partial<SocialLoginSettings>,
+    announcementBar: {} as Partial<AnnouncementBarSettings>,
     mobileViewport: 'responsive' as 'responsive' | 'desktop',
-    shopPage: { title: 'Our Products', subtitle: 'Discover our curated collection of nature-inspired beauty essentials.' } as ShopPageSettings,
-    socialLogin: { google: { enabled: true }, apple: { enabled: false }, facebook: { enabled: true } } as SocialLoginSettings,
-    headerOverlapImage: { enabled: false, imageUrl: '', opacity: 1, position: 'full', width: '100%', height: '150px', top: '0px', zIndex: 25 } as HeaderOverlapImageSettings,
-    bottomBlend: { enabled: false, imageUrl: '', darkImageUrl: '', opacity: 0.5, height: '350px', displayOnThemes: {} } as BottomBlendSettings,
+    enableGlobalCardOverlay: false,
 });
 
+const getInitialPageSettings = () => ({
+     shopPage: {} as Partial<ShopPageSettings>,
+     searchPage: {} as Partial<ShopPageSettings>,
+     productPage: {
+        shippingReturnsInfo: '',
+        enableRecommendedProducts: true,
+        recommendationMode: 'category',
+        recommendedCategoryIds: {},
+        buttons: {
+            addToCart: { enabled: true, text: 'Add to Cart', style: 'secondary', icon: 'cart', linkType: 'default' },
+            buyNow: { enabled: true, text: 'Buy Now', style: 'primary', icon: 'arrowRight', linkType: 'default' }
+        }
+    } as ProductPageSettings,
+});
 
-const ThemeSettingsManager: FC = () => {
-    const [settings, setSettings] = useState(getInitialThemeSettings());
-    const [loading, setLoading] = useState(false);
+const PageSettingsManager: FC<{openImagePicker: (callback: (url: string) => void) => void }> = ({ openImagePicker }) => {
+    const [settings, setSettings] = useState(getInitialPageSettings());
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
-    
+    const [loading, setLoading] = useState(false);
+
     useEffect(() => {
         const settingsRef = db.ref('site_settings');
+        const productsRef = db.ref('products');
+        const categoriesRef = db.ref('categories');
 
         const listener = settingsRef.on('value', snapshot => {
-            const dataFromFirebase = snapshot.val();
-            if (dataFromFirebase) {
-                setSettings(mergeDeep({}, getInitialThemeSettings(), dataFromFirebase));
-            } else {
-                setSettings(getInitialThemeSettings());
-            }
+            const data = snapshot.val();
+            if (data) setSettings(mergeDeep({}, getInitialPageSettings(), data));
+            else setSettings(getInitialPageSettings());
         });
-        db.ref('products').on('value', s => setProducts(s.val() ? Object.keys(s.val()).map(k=>({id:k,...s.val()[k]})) : []));
-        db.ref('categories').on('value', s => setCategories(s.val() ? Object.keys(s.val()).map(k=>({id:k,...s.val()[k]})) : []));
-        return () => { settingsRef.off('value', listener); db.ref('products').off(); db.ref('categories').off(); };
+        productsRef.on('value', snapshot => setProducts(snapshot.val() ? Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] })) : []));
+        categoriesRef.on('value', snapshot => setCategories(snapshot.val() ? Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] })) : []));
+
+        return () => { settingsRef.off('value', listener); productsRef.off(); categoriesRef.off(); };
     }, []);
 
     const handleSettingsChange = (path: string, value: any) => {
         setSettings(prev => {
-            const newState = JSON.parse(JSON.stringify(prev)); let current = newState; const keys = path.split('.');
+            const newState = JSON.parse(JSON.stringify(prev));
+            let current = newState;
+            const keys = path.split('.');
             for (let i = 0; i < keys.length - 1; i++) current = current[keys[i]] = current[keys[i]] || {};
-            current[keys[keys.length - 1]] = value; return newState;
+            current[keys[keys.length - 1]] = value;
+            return newState;
         });
     };
-    const handleAdd = (path: string, defaultData = {}) => {
-        const newId = db.ref().push().key!;
-        let newItem;
-        if (path.includes('columns')) newItem = { id: newId, title: 'New Column', links: {} };
-        else if (path.includes('socialLinks')) newItem = { id: newId, platform: 'facebook', url: 'https://facebook.com' };
-        else if (path.includes('floatingDecorations')) newItem = { id: newId, ...defaultData };
-        else newItem = { id: newId, text: 'New Link', linkType: 'internal', link: 'home' };
-        handleSettingsChange(`${path}.${newId}`, newItem);
+    
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try { 
+            await db.ref('site_settings').update(settings); 
+            alert("Settings saved successfully!"); 
+        } catch (error) { 
+            alert("Failed to save settings."); 
+        } finally { 
+            setLoading(false); 
+        }
     };
+    
+    const inputStyle = "w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green";
+    
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h1 className="text-3xl font-serif font-bold text-brand-dark">Page Settings</h1>
+                <button type="submit" disabled={loading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">
+                    {loading ? 'Saving...' : 'Save Page Settings'}
+                </button>
+            </div>
+            <CollapsibleSection title="Shop & Search Pages" startsOpen>
+                 <div className="space-y-4 max-w-3xl">
+                    <div><label className="block text-sm font-medium text-gray-700">Shop Page Title</label><input type="text" value={settings.shopPage?.title || ''} onChange={e => handleSettingsChange('shopPage.title', e.target.value)} className={inputStyle} /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Shop Page Subtitle</label><textarea value={settings.shopPage?.subtitle || ''} onChange={e => handleSettingsChange('shopPage.subtitle', e.target.value)} className={`${inputStyle} h-24`} /></div>
+                    <div><label className="block text-sm font-medium text-gray-700">Search Page Title</label><input type="text" value={settings.searchPage?.title || ''} onChange={e => handleSettingsChange('searchPage.title', e.target.value)} className={inputStyle} /></div>
+                </div>
+            </CollapsibleSection>
+            <CollapsibleSection title="Product Detail Page">
+                 <div className="space-y-4 max-w-3xl">
+                    <div><label className="block text-sm font-medium text-gray-700">Shipping & Returns Information (HTML supported)</label><textarea value={settings.productPage.shippingReturnsInfo || ''} onChange={e => handleSettingsChange('productPage.shippingReturnsInfo', e.target.value)} className={`${inputStyle} h-40`} /></div>
+                     <div>
+                        <h4 className="font-semibold mb-2">"You Might Also Like" Section</h4>
+                        <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.productPage.enableRecommendedProducts} onChange={e => handleSettingsChange('productPage.enableRecommendedProducts', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
+                        {settings.productPage.enableRecommendedProducts && <div className="mt-2 pl-8 space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">Fallback Recommendation Mode</label>
+                            <select value={settings.productPage.recommendationMode} onChange={e => handleSettingsChange('productPage.recommendationMode', e.target.value)} className={inputStyle}>
+                                <option value="manual">Same Category (Default)</option><option value="category">Specific Categories</option><option value="random">Random from All Products</option>
+                            </select>
+                             {settings.productPage.recommendationMode === 'category' && <div><label className="block text-sm font-medium text-gray-700 mb-2">Select Categories for Fallback</label><div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border p-2 rounded-md">{categories.map(c => (<label key={c.id} className="flex items-center space-x-2 p-1 border rounded-md hover:bg-gray-50 cursor-pointer text-sm"><input type="checkbox" checked={!!settings.productPage.recommendedCategoryIds?.[c.id]} onChange={e => { const newIds = {...settings.productPage.recommendedCategoryIds}; if(e.target.checked) newIds[c.id] = true; else delete newIds[c.id]; handleSettingsChange('productPage.recommendedCategoryIds', newIds);}} className="h-4 w-4"/><span>{c.name}</span></label>))}</div></div>}
+                        </div>}
+                    </div>
+                     <div>
+                        <h4 className="font-semibold mb-2">Action Buttons</h4>
+                        <div className="space-y-4">
+                             <div><h5 className="font-medium text-gray-800">"Add to Cart" Button</h5><ActionButtonEditor path="productPage.buttons.addToCart" settings={settings.productPage.buttons.addToCart} onChange={handleSettingsChange} products={products} categories={categories}/></div>
+                             <div><h5 className="font-medium text-gray-800">"Buy Now" Button</h5><ActionButtonEditor path="productPage.buttons.buyNow" settings={settings.productPage.buttons.buyNow} onChange={handleSettingsChange} products={products} categories={categories}/></div>
+                        </div>
+                    </div>
+                </div>
+            </CollapsibleSection>
+        </form>
+    )
+};
+
+
+const ThemeAndGlobalSettingsManager: FC<{ openImagePicker: (callback: (url: string) => void) => void }> = ({ openImagePicker }) => {
+    const [settings, setSettings] = useState<any>({});
+    const [loading, setLoading] = useState(false);
+    const [activeThemeForEditing, setActiveThemeForEditing] = useState<Theme>('light');
+    const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+
+
+    useEffect(() => {
+        const settingsRef = db.ref('site_settings');
+        const productsRef = db.ref('products');
+        const categoriesRef = db.ref('categories');
+
+        const listener = settingsRef.on('value', snapshot => {
+            const dataFromFirebase = snapshot.val();
+            if (dataFromFirebase) {
+                setSettings(mergeDeep({}, getInitialSiteSettings(), dataFromFirebase));
+                setActiveThemeForEditing(dataFromFirebase.activeTheme || 'light');
+            } else {
+                setSettings(getInitialSiteSettings());
+            }
+        });
+
+        productsRef.on('value', snapshot => setProducts(snapshot.val() ? Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] })) : []));
+        categoriesRef.on('value', snapshot => setCategories(snapshot.val() ? Object.keys(snapshot.val()).map(key => ({ id: key, ...snapshot.val()[key] })) : []));
+        
+        return () => {
+             settingsRef.off('value', listener);
+             productsRef.off();
+             categoriesRef.off();
+        };
+    }, []);
+
+    const handleSettingsChange = (path: string, value: any) => {
+        setSettings(prev => {
+            const newState = JSON.parse(JSON.stringify(prev));
+            let current = newState;
+            const keys = path.split('.');
+            for (let i = 0; i < keys.length - 1; i++) current = current[keys[i]] = current[keys[i]] || {};
+            current[keys[keys.length - 1]] = value;
+            return newState;
+        });
+    };
+    
+    const handleAdd = (path: string, newItemData: any) => {
+        const newId = db.ref().push().key!;
+        handleSettingsChange(`${path}.${newId}`, { id: newId, ...newItemData });
+    };
+
     const handleRemove = (path: string) => {
         const keys = path.split('.');
-        const parentPath = keys.slice(0, -1).join('/');
-        const childKey = keys[keys.length - 1];
-        db.ref(`site_settings/${parentPath}/${childKey}`).remove();
+        setSettings(prev => {
+            const newState = JSON.parse(JSON.stringify(prev));
+            let current = newState;
+            for (let i = 0; i < keys.length - 1; i++) {
+                if (!current[keys[i]]) return newState; // Path doesn't exist
+                current = current[keys[i]];
+            }
+            delete current[keys[keys.length - 1]];
+            return newState;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setLoading(true);
-        try { await db.ref('site_settings').update(settings); alert("Theme settings saved!"); } 
-        catch (error) { alert("Failed to save settings."); } finally { setLoading(false); }
+        e.preventDefault();
+        setLoading(true);
+        try { 
+            await db.ref('site_settings').update(settings); 
+            alert("Settings saved successfully!"); 
+        } catch (error) { 
+            console.error(error);
+            alert("Failed to save settings."); 
+        } finally { 
+            setLoading(false); 
+        }
     };
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        if(e.target.files?.[0]){ try{ handleSettingsChange(field, await uploadFile(e.target.files[0])); } catch { alert("Upload failed.")}}
-    }
     
-    const handleThemeLinkChange = (path: string, theme: Theme, isChecked: boolean) => {
-        const currentThemes = settings.header?.navLinks[path.split('.').pop()!]?.displayThemes || { light: true, dark: true, blue: true, diwali: true };
-        const newThemes = { ...currentThemes, [theme]: isChecked };
-        handleSettingsChange(`${path}.displayThemes`, newThemes);
-    };
-
-
     const inputStyle = "w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-brand-dark focus:outline-none focus:ring-2 focus:ring-brand-green/50 focus:border-brand-green";
-    
-    const colorProperties: { key: keyof ColorSet; label: string }[] = [
-        { key: 'primary', label: 'Primary' }, { key: 'bg', label: 'Background' },
-        { key: 'surface', label: 'Surface (Cards)' }, { key: 'text', label: 'Main Text' },
-        { key: 'secondary', label: 'Secondary Text' }, { key: 'lightGray', label: 'Light Gray/Accent' },
-        { key: 'shadowRgb', label: 'Shadow Color (RGB)' }
-    ];
+    const currentThemeColors = settings.themeColors?.[activeThemeForEditing] || {};
+
+    const colorSetColorFields: (keyof ColorSet)[] = [ 'primary', 'bg', 'surface', 'text', 'secondary', 'lightGray', 'shadowRgb', 'buttonTextColor' ];
+    const colorSetStringFields: (keyof ColorSet)[] = [ 'buttonTextureUrl', 'surfaceTextureUrl' ];
+    const colorSetNumberFields: (keyof ColorSet)[] = [ 'surfaceTextureOpacity' ];
 
     return (
         <div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex justify-between items-center"><h1 className="text-3xl font-serif font-bold text-brand-dark">Theme Settings</h1><button type="submit" disabled={loading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">{loading ? 'Saving...' : 'Save Theme Settings'}</button></div>
+             <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex justify-between items-center">
+                    <h1 className="text-3xl font-serif font-bold text-brand-dark">Theme & Global Settings</h1>
+                    <button type="submit" disabled={loading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">
+                        {loading ? 'Saving...' : 'Save All Settings'}
+                    </button>
+                </div>
                 
-                <CollapsibleSection title="Active Site Theme" startsOpen={true}>
+                <CollapsibleSection title="Global Site Identity" startsOpen={true}>
+                    <div className="space-y-4 max-w-3xl">
+                        <div><label className="block text-sm font-medium text-gray-700">Site Title</label><input type="text" value={settings.siteTitle || ''} onChange={e => handleSettingsChange('siteTitle', e.target.value)} className={inputStyle} /></div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Logo Image URL</label>
+                             <div className="flex gap-4">
+                               <input type="text" value={settings.logoUrl || ''} onChange={e => handleSettingsChange('logoUrl', e.target.value)} placeholder="Logo URL" className={inputStyle} />
+                               <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('logoUrl', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                            </div>
+                        </div>
+                         <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.useImageForTitle} onChange={e => handleSettingsChange('useImageForTitle', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Use Image instead of Text for Site Title</span></label>
+                         {settings.useImageForTitle && <div>
+                            <label className="block text-sm font-medium text-gray-700">Site Title Image URL</label>
+                             <div className="flex gap-4">
+                               <input type="text" value={settings.siteTitleImageUrl || ''} onChange={e => handleSettingsChange('siteTitleImageUrl', e.target.value)} placeholder="Title Image URL" className={inputStyle} />
+                               <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('siteTitleImageUrl', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
+                            </div>
+                        </div>}
+                    </div>
+                </CollapsibleSection>
+                
+                <CollapsibleSection title="Theme & Colors">
+                    <div className="max-w-3xl space-y-4">
+                        <div><label className="block text-sm font-medium text-gray-700">Active Site Theme</label><select value={settings.activeTheme || 'light'} onChange={e => handleSettingsChange('activeTheme', e.target.value)} className={inputStyle}>{themes.map(t => <option key={t.name} value={t.name}>{t.label}</option>)}</select></div>
+                        <div className="border p-4 rounded-lg space-y-4">
+                            <h4 className="font-bold text-lg">Edit Theme Colors</h4>
+                            <div className="flex flex-wrap gap-2 border-b pb-4">{themes.map(t => (<button type="button" key={t.name} onClick={() => setActiveThemeForEditing(t.name)} className={`px-4 py-2 rounded-full text-sm font-medium border-2 ${activeThemeForEditing === t.name ? 'border-brand-green bg-brand-green/10' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{t.label}</button>))}</div>
+                            <div className="grid grid-cols-1 gap-2">
+                                <h5 className="font-semibold text-gray-600 text-sm pt-2">Colors (RGB string or hex)</h5>
+                                {colorSetColorFields.map(key => (
+                                    <ColorInput key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} value={(currentThemeColors[key] as string) || ''} onChange={v => handleSettingsChange(`themeColors.${activeThemeForEditing}.${key}`, v)} />
+                                ))}
+                                <h5 className="font-semibold text-gray-600 text-sm pt-4">Textures & Overlays</h5>
+                                {colorSetStringFields.map(key => (
+                                    <div key={key} className="grid grid-cols-1 md:grid-cols-[150px_1fr_auto] items-center gap-2 py-2 border-b border-gray-100 last:border-b-0">
+                                        <label className="text-sm font-medium text-gray-700">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</label>
+                                        <input 
+                                            type="text" 
+                                            value={(currentThemeColors[key] as string) || ''} 
+                                            onChange={e => handleSettingsChange(`themeColors.${activeThemeForEditing}.${key}`, e.target.value)} 
+                                            className={inputStyle}
+                                            placeholder="Image URL"
+                                        />
+                                        <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange(`themeColors.${activeThemeForEditing}.${key}`, url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm">Browse</button>
+                                    </div>
+                                ))}
+                                {colorSetNumberFields.map(key => (
+                                    <div key={key} className="grid grid-cols-1 md:grid-cols-[150px_1fr] items-center gap-2 py-2 border-b border-gray-100 last:border-b-0">
+                                        <label className="text-sm font-medium text-gray-700">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</label>
+                                        <input 
+                                            type="number"
+                                            step="0.01" min="0" max="1"
+                                            value={(currentThemeColors[key] as number) || 0} 
+                                            onChange={e => handleSettingsChange(`themeColors.${activeThemeForEditing}.${key}`, Number(e.target.value))} 
+                                            className={inputStyle}
+                                            placeholder="0 to 1"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </CollapsibleSection>
+                 <CollapsibleSection title="Diwali Theme Settings">
+                    <div className="max-w-3xl space-y-4">
+                        {(Object.keys(settings.diwaliThemeSettings || {}) as (keyof DiwaliThemeSettings)[]).map(key => (
+                            <DiwaliOverlayEditor key={key} label={key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} settings={settings.diwaliThemeSettings[key]} onSettingChange={handleSettingsChange} basePath={`diwaliThemeSettings.${key}`} themes={themes} openImagePicker={openImagePicker} />
+                        ))}
+                    </div>
+                </CollapsibleSection>
+                <CollapsibleSection title="Mobile Viewport">
                     <div className="max-w-3xl space-y-2">
-                        <p className="text-sm text-gray-600">Select the theme that will be active for all users visiting the site.</p>
-                        <div className="flex flex-wrap gap-4 pt-2">
-                            {themes.map(t => (
-                                <label key={t.name} className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:bg-brand-green/10 has-[:checked]:border-brand-green">
-                                    <input 
-                                        type="radio" 
-                                        name="activeTheme"
-                                        value={t.name}
-                                        checked={settings.activeTheme === t.name}
-                                        onChange={e => handleSettingsChange('activeTheme', e.target.value)}
-                                        className="h-4 w-4 text-brand-green border-gray-300 focus:ring-brand-green"
-                                    />
-                                    <span className="w-5 h-5 rounded-full border border-gray-300" style={{ backgroundColor: t.color }}></span>
-                                    <span className="font-medium text-gray-800">{t.label}</span>
-                                </label>
-                            ))}
-                        </div>
+                        <label className="block text-sm font-medium text-gray-700">Mobile Viewport Behavior</label>
+                        <p className="text-xs text-gray-500">Choose how the site should render on mobile devices. 'Responsive' is standard. 'Force Desktop' will show the desktop layout scaled down, which may impact usability.</p>
+                        <select 
+                            value={settings.mobileViewport || 'responsive'} 
+                            onChange={e => handleSettingsChange('mobileViewport', e.target.value)} 
+                            className={inputStyle}
+                        >
+                            <option value="responsive">Responsive (Recommended)</option>
+                            <option value="desktop">Force Desktop View</option>
+                        </select>
                     </div>
                 </CollapsibleSection>
-
-                 <CollapsibleSection title="Global Styles & Pages">
-                    <div className="max-w-3xl space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Search Page Title</label>
-                            <input 
-                                type="text" 
-                                value={settings.searchPage?.title || ''} 
-                                onChange={e => handleSettingsChange('searchPage.title', e.target.value)} 
-                                placeholder="Search Our Products" 
-                                className={inputStyle}
-                            />
-                        </div>
-                        <div className="pt-4 border-t">
-                             <h3 className="text-lg font-semibold text-gray-800">Shop Page</h3>
-                             <div>
-                                 <label className="block text-sm font-medium text-gray-700">Page Title</label>
-                                 <input type="text" value={settings.shopPage?.title || ''} onChange={e => handleSettingsChange('shopPage.title', e.target.value)} className={inputStyle} />
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-gray-700">Page Subtitle</label>
-                                 <textarea value={settings.shopPage?.subtitle || ''} onChange={e => handleSettingsChange('shopPage.subtitle', e.target.value)} className={inputStyle} rows={2} />
-                             </div>
-                         </div>
-                        <div className="pt-4 border-t">
-                            <label className="flex items-center space-x-3 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    checked={settings.enableGlobalCardOverlay || false} 
-                                    onChange={e => handleSettingsChange('enableGlobalCardOverlay', e.target.checked)} 
-                                    className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"
-                                />
-                                <span>Enable Card Overlay Texture Globally</span>
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1">This applies the configured "Surface Texture" from the color settings to all product cards. The "Apply Card Overlay" setting on individual products will also enable it if this is off.</p>
-                        </div>
-                        <div className="pt-4 border-t">
-                            <h3 className="text-lg font-semibold text-gray-800">Mobile Viewport</h3>
-                            <p className="text-sm text-gray-500 mt-1">Control how the site is displayed on mobile devices.</p>
-                            <div className="flex flex-wrap gap-4 pt-2">
-                                <label className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:bg-brand-green/10 has-[:checked]:border-brand-green">
-                                    <input 
-                                        type="radio" 
-                                        name="mobileViewport"
-                                        value="responsive"
-                                        checked={settings.mobileViewport === 'responsive'}
-                                        onChange={e => handleSettingsChange('mobileViewport', e.target.value)}
-                                        className="h-4 w-4 text-brand-green border-gray-300 focus:ring-brand-green"
-                                    />
-                                    <span className="font-medium text-gray-800">Responsive (Normal Android/iOS View)</span>
-                                </label>
-                                <label className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:bg-brand-green/10 has-[:checked]:border-brand-green">
-                                    <input 
-                                        type="radio" 
-                                        name="mobileViewport"
-                                        value="desktop"
-                                        checked={settings.mobileViewport === 'desktop'}
-                                        onChange={e => handleSettingsChange('mobileViewport', e.target.value)}
-                                        className="h-4 w-4 text-brand-green border-gray-300 focus:ring-brand-green"
-                                    />
-                                    <span className="font-medium text-gray-800">Force Desktop View</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Theme Color Customization">
-                     <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Define the color palettes for each theme. The values should be RGB (e.g., "107 127 115") or HEX (e.g., "#6B7F73").</p>
-                         <div className="space-y-6">
-                             {themes.map(t => (
-                                 <div key={t.name} className="p-4 border rounded-lg">
-                                     <h4 className="text-lg font-bold mb-2 flex items-center">
-                                        <span className="w-5 h-5 rounded-full border border-gray-300 mr-2" style={{ backgroundColor: t.color }}></span>
-                                        {t.label} Colors
-                                    </h4>
-                                     <div className="space-y-1">
-                                         {colorProperties.map(prop => (
-                                             <ColorInput
-                                                 key={prop.key}
-                                                 label={prop.label}
-                                                 value={(settings.themeColors?.[t.name] as any)?.[prop.key] || ''}
-                                                 onChange={val => handleSettingsChange(`themeColors.${t.name}.${prop.key}`, val)}
-                                             />
-                                         ))}
-                                        <div className="pt-4 mt-4 border-t space-y-3">
-                                            <h5 className="font-semibold text-gray-800">Button Background Image</h5>
-                                            <p className="text-xs text-gray-500">Upload a full button image. It will be stretched to fit the button's dimensions.</p>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700">Button Background Image URL</label>
-                                                <input type="text" placeholder="Image URL" value={(settings.themeColors?.[t.name] as any)?.buttonTextureUrl || ''} onChange={e => handleSettingsChange(`themeColors.${t.name}.buttonTextureUrl`, e.target.value)} className={inputStyle} />
-                                                <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `themeColors.${t.name}.buttonTextureUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                            </div>
-                                            <ColorInput
-                                                label="Button Text Color"
-                                                value={(settings.themeColors?.[t.name] as any)?.buttonTextColor || ''}
-                                                onChange={val => handleSettingsChange(`themeColors.${t.name}.buttonTextColor`, val)}
-                                            />
-                                            <div className="pt-4 mt-4 border-t space-y-3">
-                                                <h5 className="font-semibold text-gray-800">Card Overlay Image</h5>
-                                                <p className="text-xs text-gray-500">This image will be used as an overlay on product cards where the "Apply Custom Card Overlay" option is checked. Use a seamless, tileable texture for best results (e.g., 300x300 pixels).</p>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Card Overlay Image URL</label>
-                                                    <input type="text" placeholder="Image URL" value={(settings.themeColors?.[t.name] as any)?.surfaceTextureUrl || ''} onChange={e => handleSettingsChange(`themeColors.${t.name}.surfaceTextureUrl`, e.target.value)} className={inputStyle} />
-                                                    <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `themeColors.${t.name}.surfaceTextureUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700">Card Overlay Opacity ({Math.round(((settings.themeColors?.[t.name] as any)?.surfaceTextureOpacity ?? 0.2) * 100)}%)</label>
-                                                    <input type="range" min="0" max="100" value={((settings.themeColors?.[t.name] as any)?.surfaceTextureOpacity ?? 0.2) * 100} onChange={e => handleSettingsChange(`themeColors.${t.name}.surfaceTextureOpacity`, Number(e.target.value) / 100)} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                     </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Festive (Diwali) Theme Assets">
-                    <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Customize the decorative images for the Diwali themes. Use transparent PNGs for the best effect.</p>
-                        <DiwaliOverlayEditor
-                            label="Header Garland (Mala)"
-                            settings={settings.diwaliThemeSettings?.headerGarland}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.headerGarland"
-                            themes={themes}
-                        />
-                         <DiwaliOverlayEditor
-                            label="Header Streamer (Jhalar)"
-                            settings={settings.diwaliThemeSettings?.headerOverlay}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.headerOverlay"
-                            themes={themes}
-                        />
-                        <DiwaliOverlayEditor
-                            label="Corner Decoration (Rangoli)"
-                            settings={settings.diwaliThemeSettings?.cornerRangoli}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.cornerRangoli"
-                            themes={themes}
-                        />
-                        <DiwaliOverlayEditor
-                            label="Footer Fireworks"
-                            settings={settings.diwaliThemeSettings?.fireworks}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.fireworks"
-                            themes={themes}
-                        />
-                        <DiwaliOverlayEditor
-                            label="Footer Diya Row"
-                            settings={settings.diwaliThemeSettings?.diyaRow}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.diyaRow"
-                            themes={themes}
-                        />
-                         <DiwaliOverlayEditor
-                            label="Footer Decorative Overlay"
-                            settings={settings.diwaliThemeSettings?.footerDecorativeOverlay}
-                            onSettingChange={handleSettingsChange}
-                            basePath="diwaliThemeSettings.footerDecorativeOverlay"
-                            themes={themes}
-                        />
-                    </div>
-                </CollapsibleSection>
-                
-                <CollapsibleSection title="Floating Decorations (Flowers, Diyas, etc.)">
-                    <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Add decorative images that float on the page in fixed positions. Use transparent PNGs for the best results. Be mindful of performance; don't add too many.</p>
-                        <div className="space-y-4">
-                            {settings.floatingDecorations && Object.entries(settings.floatingDecorations).map(([id, decor]: [string, any]) => (
-                                <div key={id} className="border p-4 rounded-lg space-y-3 relative bg-white">
-                                    <div className="flex justify-between items-center">
-                                        <input type="text" value={decor.name} onChange={e => handleSettingsChange(`floatingDecorations.${id}.name`, e.target.value)} placeholder="Decoration Name (for admin)" className={`${inputStyle} font-semibold`} />
-                                        <button type="button" onClick={() => handleRemove(`floatingDecorations.${id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
-                                    </div>
-                                    
-                                    <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={decor.enabled} onChange={e => handleSettingsChange(`floatingDecorations.${id}.enabled`, e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this decoration</span></label>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">Image (Light Theme)</label>
-                                            <input type="text" placeholder="Image URL" value={decor.imageUrl || ''} onChange={e => handleSettingsChange(`floatingDecorations.${id}.imageUrl`, e.target.value)} className={inputStyle} />
-                                            <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `floatingDecorations.${id}.imageUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                        </div>
-                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700">Image (Dark Theme)</label>
-                                            <input type="text" placeholder="Optional dark mode image URL" value={decor.darkImageUrl || ''} onChange={e => handleSettingsChange(`floatingDecorations.${id}.darkImageUrl`, e.target.value)} className={inputStyle} />
-                                            <input type="file" accept="image/*" onChange={e => handleImageUpload(e, `floatingDecorations.${id}.darkImageUrl`)} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                         <div><label className="block text-sm font-medium">Width</label><input type="text" placeholder="e.g. 100px" value={decor.width} onChange={e => handleSettingsChange(`floatingDecorations.${id}.width`, e.target.value)} className={inputStyle}/></div>
-                                         <div><label className="block text-sm font-medium">Height</label><input type="text" placeholder="e.g. 100px or auto" value={decor.height} onChange={e => handleSettingsChange(`floatingDecorations.${id}.height`, e.target.value)} className={inputStyle}/></div>
-                                         <div><label className="block text-sm font-medium">Rotation (°)</label><input type="number" value={decor.rotation} onChange={e => handleSettingsChange(`floatingDecorations.${id}.rotation`, Number(e.target.value))} className={inputStyle}/></div>
-                                         <div><label className="block text-sm font-medium">Z-Index</label><input type="number" value={decor.zIndex} onChange={e => handleSettingsChange(`floatingDecorations.${id}.zIndex`, Number(e.target.value))} className={inputStyle}/></div>
-                                    </div>
-                                    
-                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Opacity ({Math.round((decor.opacity ?? 1) * 100)}%)</label>
-                                        <input type="range" min="0" max="100" value={(decor.opacity ?? 1) * 100} onChange={e => handleSettingsChange(`floatingDecorations.${id}.opacity`, Number(e.target.value) / 100)} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                         <div><label className="block text-sm font-medium">Top</label><input type="text" placeholder="e.g. 10% or 50px" value={decor.top} onChange={e => handleSettingsChange(`floatingDecorations.${id}.top`, e.target.value)} className={inputStyle}/></div>
-                                         <div><label className="block text-sm font-medium">Left</label><input type="text" placeholder="e.g. 10%" value={decor.left || ''} onChange={e => handleSettingsChange(`floatingDecorations.${id}.left`, e.target.value)} className={inputStyle}/></div>
-                                         <div><label className="block text-sm font-medium">Right</label><input type="text" placeholder="e.g. 10%" value={decor.right || ''} onChange={e => handleSettingsChange(`floatingDecorations.${id}.right`, e.target.value)} className={inputStyle}/></div>
-                                    </div>
-
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Visible on themes:</label>
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
-                                            {themes.map(t => (
-                                                <label key={t.name} className="flex items-center space-x-1.5 text-sm font-medium text-gray-700">
-                                                    <input type="checkbox" checked={decor.displayOnThemes ? (decor.displayOnThemes[t.name] ?? false) : false} onChange={e => { const newThemes = { ...(decor.displayOnThemes || {}), [t.name]: e.target.checked }; handleSettingsChange(`floatingDecorations.${id}.displayOnThemes`, newThemes); }} />
-                                                    <span>{t.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <button type="button" onClick={() => handleAdd('floatingDecorations', { name: 'New Decoration', enabled: true, imageUrl: '', top: '20%', left: '5%', width: '150px', opacity: 1, rotation: 0, zIndex: 1, displayOnThemes: { diwali: true, 'diwali-dark': true } })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Decoration</button>
-                    </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Header Overlap Image">
-                    <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Add an image or GIF that overlaps the header. Useful for decorations like garlands or logos.</p>
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input type="checkbox" checked={settings.headerOverlapImage?.enabled || false} onChange={e => handleSettingsChange('headerOverlapImage.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
-                            <span>Enable Header Overlap Image</span>
-                        </label>
-
-                        {settings.headerOverlapImage?.enabled && (
-                            <div className="space-y-4 animate-fade-in-up">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Image URL (PNG, GIF recommended)</label>
-                                    {settings.headerOverlapImage?.imageUrl && <img src={settings.headerOverlapImage.imageUrl} alt="Header overlap preview" className="max-h-24 object-contain rounded-md my-2 border bg-gray-100 p-2" />}
-                                    <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'headerOverlapImage.imageUrl')} className="text-sm w-full file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                    <input type="text" value={settings.headerOverlapImage?.imageUrl || ''} onChange={e => handleSettingsChange('headerOverlapImage.imageUrl', e.target.value)} className={`${inputStyle} mt-2`} placeholder="Or paste image URL" />
-                                    <button type="button" onClick={() => handleSettingsChange('headerOverlapImage.imageUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Position</label>
-                                        <select value={settings.headerOverlapImage?.position || 'full'} onChange={e => handleSettingsChange('headerOverlapImage.position', e.target.value)} className={inputStyle}>
-                                            <option value="full">Full Width</option>
-                                            <option value="left">Left</option>
-                                            <option value="right">Right</option>
-                                            <option value="center">Center</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Opacity ({Math.round((settings.headerOverlapImage?.opacity ?? 1) * 100)}%)</label>
-                                        <input type="range" min="0" max="100" value={(settings.headerOverlapImage?.opacity ?? 1) * 100} onChange={e => handleSettingsChange('headerOverlapImage.opacity', Number(e.target.value) / 100)} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div><label className="block text-sm font-medium">Width</label><input type="text" placeholder="e.g. 100% or 300px" value={settings.headerOverlapImage?.width} onChange={e => handleSettingsChange('headerOverlapImage.width', e.target.value)} className={inputStyle}/></div>
-                                    <div><label className="block text-sm font-medium">Height</label><input type="text" placeholder="e.g. 150px" value={settings.headerOverlapImage?.height} onChange={e => handleSettingsChange('headerOverlapImage.height', e.target.value)} className={inputStyle}/></div>
-                                    <div><label className="block text-sm font-medium">Top Offset</label><input type="text" placeholder="e.g. 0px or -20px" value={settings.headerOverlapImage?.top} onChange={e => handleSettingsChange('headerOverlapImage.top', e.target.value)} className={inputStyle}/></div>
-                                    <div><label className="block text-sm font-medium">Z-Index</label><input type="number" value={settings.headerOverlapImage?.zIndex} onChange={e => handleSettingsChange('headerOverlapImage.zIndex', Number(e.target.value))} className={inputStyle}/></div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </CollapsibleSection>
-
-                 <CollapsibleSection title="Bottom Blend Effect">
-                    <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Add a decorative image that fades in from the bottom of the page. Sits behind all content.</p>
-                        <label className="flex items-center space-x-3 cursor-pointer">
-                            <input type="checkbox" checked={settings.bottomBlend?.enabled || false} onChange={e => handleSettingsChange('bottomBlend.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
-                            <span>Enable Bottom Blend Effect</span>
-                        </label>
-                        {settings.bottomBlend?.enabled && (
-                            <div className="space-y-4 animate-fade-in-up">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Image (Light Theme)</label>
-                                        <input type="text" placeholder="Image URL" value={settings.bottomBlend.imageUrl || ''} onChange={e => handleSettingsChange('bottomBlend.imageUrl', e.target.value)} className={inputStyle} />
-                                        <input type="file" accept="image/*" onChange={e => handleImageUpload(e, 'bottomBlend.imageUrl')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Image (Dark Theme)</label>
-                                        <input type="text" placeholder="Optional dark mode image URL" value={settings.bottomBlend.darkImageUrl || ''} onChange={e => handleSettingsChange('bottomBlend.darkImageUrl', e.target.value)} className={inputStyle} />
-                                        <input type="file" accept="image/*" onChange={e => handleImageUpload(e, 'bottomBlend.darkImageUrl')} className="text-sm w-full mt-1 file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700">Opacity ({Math.round((settings.bottomBlend.opacity ?? 0.5) * 100)}%)</label>
-                                        <input type="range" min="0" max="100" value={(settings.bottomBlend.opacity ?? 0.5) * 100} onChange={e => handleSettingsChange('bottomBlend.opacity', Number(e.target.value) / 100)} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700">Height</label>
-                                        <input type="text" placeholder="e.g. 350px or 40vh" value={settings.bottomBlend.height || ''} onChange={e => handleSettingsChange('bottomBlend.height', e.target.value)} className={inputStyle}/>
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-gray-700">Visible on themes:</label>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">
-                                        {themes.map(t => (
-                                            <label key={t.name} className="flex items-center space-x-1.5 text-sm font-medium text-gray-700">
-                                                <input type="checkbox" checked={settings.bottomBlend.displayOnThemes?.[t.name] ?? false} onChange={e => { const newThemes = { ...(settings.bottomBlend.displayOnThemes || {}), [t.name]: e.target.checked }; handleSettingsChange(`bottomBlend.displayOnThemes`, newThemes); }} />
-                                                <span>{t.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                 </CollapsibleSection>
-
-                <CollapsibleSection title="Global & Header">
-                    <div className="max-w-3xl space-y-4">
-                        <h2 className="text-xl font-bold">Global</h2>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Site Title</label>
-                            <div className="flex items-center space-x-3 mt-1">
-                                <input type="text" value={settings.siteTitle} onChange={e => handleSettingsChange('siteTitle', e.target.value)} className={inputStyle} disabled={settings.useImageForTitle} />
-                                <label className="flex items-center space-x-2 text-sm">
-                                    <input type="checkbox" checked={settings.useImageForTitle || false} onChange={e => handleSettingsChange('useImageForTitle', e.target.checked)} />
-                                    <span>Use Image</span>
-                                </label>
-                            </div>
-                        </div>
-                        {settings.useImageForTitle && (
-                            <div className="p-3 border rounded-lg bg-gray-50/50">
-                                <label className="block text-sm font-medium text-gray-700">Site Title Image/GIF</label>
-                                {settings.siteTitleImageUrl && <img src={settings.siteTitleImageUrl} alt="Site Title" className="h-12 my-2 border p-1 rounded bg-white" />}
-                                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'siteTitleImageUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                                <input type="text" placeholder="Or paste image URL" value={settings.siteTitleImageUrl || ''} onChange={e => handleSettingsChange('siteTitleImageUrl', e.target.value)} className={`${inputStyle} mt-2`}/>
-                                <button type="button" onClick={() => handleSettingsChange('siteTitleImageUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
-                            </div>
-                        )}
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Site Logo</label>
-                            {settings.logoUrl && <img src={settings.logoUrl} alt="Logo" className="w-16 h-16 rounded-full my-2 border p-1 bg-white"/>}
-                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-                            <input type="text" placeholder="Or paste logo URL" value={settings.logoUrl || ''} onChange={e => handleSettingsChange('logoUrl', e.target.value)} className={`${inputStyle} mt-2`}/>
-                            <button type="button" onClick={() => handleSettingsChange('logoUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Logo</button>
-                        </div>
-                        <h2 className="text-xl font-bold pt-4 border-t">Header Navigation Links</h2>
-                        <div className="space-y-4">{settings.header.navLinks && Object.entries(settings.header.navLinks).map(([id, link]: [string, any]) => (<div key={id} className="border p-4 rounded-md space-y-3"><div className="flex justify-end"><button type="button" onClick={() => handleRemove(`header.navLinks.${id}`)} className="text-red-500 hover:text-red-700 p-1"><TrashIcon className="w-4 h-4"/></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><input type="text" value={link.text} onChange={e => handleSettingsChange(`header.navLinks.${id}.text`, e.target.value)} placeholder="Link Text" className={inputStyle} /><select value={link.linkType} onChange={e => { handleSettingsChange(`header.navLinks.${id}.link`, ''); handleSettingsChange(`header.navLinks.${id}.linkType`, e.target.value); }} className={inputStyle}><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option></select></div><div>{link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{link.linkType === 'category' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div><div className="pt-2"><p className="text-sm font-medium text-gray-700">Show on themes:</p><div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">{themes.map(t => (<label key={t.name} className="flex items-center space-x-1.5 text-sm"><input type="checkbox" checked={link.displayThemes?.[t.name] ?? false} onChange={e => handleThemeLinkChange(`header.navLinks.${id}`, t.name, e.target.checked)} /><span>{t.label}</span></label>))}</div></div></div>))}<button type="button" onClick={() => handleAdd('header.navLinks')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Nav Link</button></div>
-                    </div>
-                </CollapsibleSection>
-
                 <CollapsibleSection title="Footer Settings">
-                    <div className="max-w-3xl space-y-4">
-                        <h2 className="text-xl font-bold">General Footer Content</h2>
-                        <textarea value={settings.footer.description} onChange={e => handleSettingsChange('footer.description', e.target.value)} placeholder="Footer Description" className={inputStyle} rows={2}/>
-                        <input type="text" value={settings.footer.copyrightText} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder="Copyright Text" className={inputStyle}/>
-                        
-                        <h2 className="text-xl font-bold pt-4 border-t">Contact Information</h2>
-                        <div className="space-y-2">
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Phone Number</label>
-                                <input type="text" value={settings.footer.contactInfo?.phone || ''} onChange={e => handleSettingsChange('footer.contactInfo.phone', e.target.value)} placeholder="e.g., +1 (555) 123-4567" className={inputStyle}/>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Email Address</label>
-                                <input type="email" value={settings.footer.contactInfo?.email || ''} onChange={e => handleSettingsChange('footer.contactInfo.email', e.target.value)} placeholder="e.g., contact@aurashka.com" className={inputStyle}/>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-gray-700">Location / Address</label>
-                                <input type="text" value={settings.footer.contactInfo?.location || ''} onChange={e => handleSettingsChange('footer.contactInfo.location', e.target.value)} placeholder="e.g., 123 Beauty Lane, Nature City" className={inputStyle}/>
-                            </div>
-                             <div>
-                                <label className="text-sm font-medium text-gray-700">Business Hours / Timing</label>
-                                <input type="text" value={settings.footer.contactInfo?.timing || ''} onChange={e => handleSettingsChange('footer.contactInfo.timing', e.target.value)} placeholder="e.g., Mon - Fri, 9am - 5pm" className={inputStyle}/>
-                            </div>
+                    <div className="space-y-6 max-w-4xl">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Footer Description</label>
+                            <textarea value={settings.footer?.description || ''} onChange={e => handleSettingsChange('footer.description', e.target.value)} className={`${inputStyle} h-20`}/>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Copyright Text</label>
+                            <input type="text" value={settings.footer?.copyrightText || ''} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} className={inputStyle}/>
                         </div>
 
-                        <h2 className="text-xl font-bold pt-4 border-t">Footer Columns</h2>
-                        <div className="space-y-4">{settings.footer.columns && Object.entries(settings.footer.columns).map(([id, col]: [string, any]) => (<div key={id} className="border p-4 rounded-md space-y-3"><div className="flex justify-between items-center"><input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${id}.title`, e.target.value)} className={`${inputStyle} font-bold`}/><button type="button" onClick={() => handleRemove(`footer.columns.${id}`)} className="text-red-500 p-1"><TrashIcon className="w-5 h-5"/></button></div><div className="space-y-2">{col.links && Object.entries(col.links).map(([linkId, link]: [string, any])=>(<div key={linkId} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center"><input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.text`, e.target.value)} placeholder="Link Text" className={inputStyle}/><select value={link.linkType} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.linkType`, e.target.value)} className={inputStyle}><option value="internal">Internal</option><option value="external">External</option></select><button onClick={()=>handleRemove(`footer.columns.${id}.links.${linkId}`)}><TrashIcon className="w-4 h-4 text-red-400"/></button></div>))}</div><button type="button" onClick={()=>handleAdd(`footer.columns.${id}.links`)} className="text-sm font-medium text-brand-green hover:underline"><PlusIcon className="w-4 h-4 inline-block mr-1"/>Add Link</button></div>))}<button type="button" onClick={() => handleAdd('footer.columns')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Footer Column</button></div>
-                        <h2 className="text-xl font-bold pt-4 border-t">Social Media Links</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="text-sm font-medium text-gray-700">Icon Size (px)</label><input type="number" value={settings.footer.socialIconSize || 24} onChange={e => handleSettingsChange('footer.socialIconSize', Number(e.target.value))} className={inputStyle}/></div>
+                        {/* Contact Info */}
+                        <div className="border p-4 rounded-lg space-y-3">
+                            <h4 className="font-semibold text-gray-800">Contact Info</h4>
+                            <input type="tel" value={settings.footer?.contactInfo?.phone || ''} onChange={e => handleSettingsChange('footer.contactInfo.phone', e.target.value)} placeholder="Phone Number" className={inputStyle}/>
+                            <input type="email" value={settings.footer?.contactInfo?.email || ''} onChange={e => handleSettingsChange('footer.contactInfo.email', e.target.value)} placeholder="Email Address" className={inputStyle}/>
+                            <input type="text" value={settings.footer?.contactInfo?.location || ''} onChange={e => handleSettingsChange('footer.contactInfo.location', e.target.value)} placeholder="Location / Address" className={inputStyle}/>
+                            <input type="text" value={settings.footer?.contactInfo?.timing || ''} onChange={e => handleSettingsChange('footer.contactInfo.timing', e.target.value)} placeholder="Business Hours" className={inputStyle}/>
                         </div>
-                         <div className="space-y-2">{settings.footer.socialLinks && Object.entries(settings.footer.socialLinks).map(([id, link]: [string, any]) => (<div key={id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center"><select value={link.platform} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.platform`, e.target.value)} className={inputStyle}><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">Twitter</option><option value="youtube">YouTube</option><option value="pinterest">Pinterest</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="whatsapp">WhatsApp</option><option value="telegram">Telegram</option></select><input type="text" value={link.url} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.url`, e.target.value)} placeholder="Profile URL" className={inputStyle} /><button onClick={()=>handleRemove(`footer.socialLinks.${id}`)}><TrashIcon className="w-4 h-4 text-red-400"/></button></div>))}<button type="button" onClick={() => handleAdd('footer.socialLinks')} className="mt-2 text-sm font-medium text-brand-green hover:underline"><PlusIcon className="w-4 h-4 inline-block mr-1"/>Add Social Link</button></div>
+
+                        {/* Social Links */}
+                        <div className="border p-4 rounded-lg space-y-3">
+                            <h4 className="font-semibold text-gray-800">Social Media Links</h4>
+                            {settings.footer?.socialLinks && Object.values(settings.footer.socialLinks).map((link: SocialLink) => (
+                                <div key={link.id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center">
+                                    <select value={link.platform} onChange={e => handleSettingsChange(`footer.socialLinks.${link.id}.platform`, e.target.value)} className={inputStyle}>
+                                        <option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">Twitter</option><option value="youtube">YouTube</option><option value="pinterest">Pinterest</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="whatsapp">WhatsApp</option><option value="telegram">Telegram</option>
+                                    </select>
+                                    <input type="url" value={link.url} onChange={e => handleSettingsChange(`footer.socialLinks.${link.id}.url`, e.target.value)} placeholder="Full URL" className={inputStyle}/>
+                                    <button type="button" onClick={() => handleRemove(`footer.socialLinks.${link.id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => handleAdd('footer.socialLinks', { platform: 'facebook', url: '' })} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Social Link</button>
+                        </div>
+                        
+                        {/* Footer Columns */}
+                        <div className="border p-4 rounded-lg space-y-4">
+                            <h4 className="font-semibold text-gray-800">Footer Link Columns</h4>
+                            {settings.footer?.columns && Object.values(settings.footer.columns).map((col: FooterColumn) => (
+                                <div key={col.id} className="border p-3 rounded-md space-y-3 bg-gray-50/50">
+                                    <div className="flex justify-between items-center">
+                                        <input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${col.id}.title`, e.target.value)} placeholder="Column Title" className={`${inputStyle} font-semibold`} />
+                                        <button type="button" onClick={() => handleRemove(`footer.columns.${col.id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                    </div>
+                                    <div className="space-y-2 border-t pt-2">
+                                        <h5 className="font-semibold text-sm text-gray-600">Links</h5>
+                                        {col.links && Object.values(col.links).map((link: NavLink) => (
+                                            <div key={link.id} className="border p-2 rounded bg-white space-y-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-2 items-center">
+                                                    <input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.text`, e.target.value)} placeholder="Link Text" className={inputStyle}/>
+                                                    <select value={link.icon || 'none'} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.icon`, e.target.value)} className={inputStyle}>
+                                                        <option value="none">No Icon</option><option value="phone">Phone</option><option value="mail">Email</option><option value="cart">Cart</option><option value="arrowRight">Arrow</option>
+                                                    </select>
+                                                    <button type="button" onClick={() => handleRemove(`footer.columns.${col.id}.links.${link.id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <select value={link.linkType} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.linkType`, e.target.value)} className={inputStyle}>
+                                                        <option value="internal">Internal Page</option><option value="external">External Link</option><option value="product">Product</option><option value="category">Category</option>
+                                                    </select>
+                                                    <div>
+                                                        {link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. shop, cart"/>}
+                                                        {link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.link`, e.target.value)} className={inputStyle} placeholder="https://..."/>}
+                                                        {link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}
+                                                        {link.linkType === 'category' && <select value={link.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`footer.columns.${col.id}.links.${link.id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => handleAdd(`footer.columns.${col.id}.links`, { text: 'New Link', linkType: 'internal', link: '' })} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Link</button>
+                                    </div>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => handleAdd('footer.columns', { title: 'New Column', links: {} })} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Column</button>
+                        </div>
                     </div>
                 </CollapsibleSection>
-
-                 <CollapsibleSection title="Social Login Settings">
-                    <div className="max-w-3xl space-y-4">
-                        <p className="text-sm text-gray-600">Enable or disable social login options on the Login page.</p>
-                        <div className="space-y-3">
-                            <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                <input type="checkbox" checked={settings.socialLogin?.google?.enabled || false} onChange={e => handleSettingsChange('socialLogin.google.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
-                                <span className="font-semibold text-gray-800">Enable Google Login</span>
-                            </label>
-                            <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                <input type="checkbox" checked={settings.socialLogin?.facebook?.enabled || false} onChange={e => handleSettingsChange('socialLogin.facebook.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
-                                <span className="font-semibold text-gray-800">Enable Facebook Login</span>
-                            </label>
-                             <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                <input type="checkbox" checked={settings.socialLogin?.apple?.enabled || false} onChange={e => handleSettingsChange('socialLogin.apple.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
-                                <span className="font-semibold text-gray-800">Enable Apple Login</span>
-                            </label>
-                        </div>
-                    </div>
-                 </CollapsibleSection>
-
-                <CollapsibleSection title="Product Page Settings">
-                    <div className="max-w-3xl space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Shipping & Returns Info (HTML supported)</label>
-                            <textarea value={settings.productPage.shippingReturnsInfo} onChange={e => handleSettingsChange('productPage.shippingReturnsInfo', e.target.value)} className={inputStyle} rows={4}/>
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-800 mt-4">"Add to Cart" Button</h3>
-                            <ActionButtonEditor path="productPage.buttons.addToCart" settings={settings.productPage.buttons?.addToCart || {}} onChange={handleSettingsChange} products={products} categories={categories} />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-semibold text-gray-800 mt-4">"Buy Now" Button</h3>
-                             <ActionButtonEditor path="productPage.buttons.buyNow" settings={settings.productPage.buttons?.buyNow || {}} onChange={handleSettingsChange} products={products} categories={categories} />
-                        </div>
-                    </div>
+                 <CollapsibleSection title="Announcement Bar">
+                     <div className="space-y-4 max-w-3xl">
+                         <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.announcementBar?.enabled} onChange={e => handleSettingsChange('announcementBar.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable Announcement Bar</span></label>
+                         {settings.announcementBar?.enabled && <div className="space-y-4">
+                            <input type="text" value={settings.announcementBar.text} onChange={e=>handleSettingsChange('announcementBar.text', e.target.value)} placeholder="Announcement Text" className={inputStyle} />
+                         </div>}
+                     </div>
                 </CollapsibleSection>
             </form>
         </div>
     );
 };
 
-// FIX: Added the main AdminDashboard component and exported it as default to resolve the import error.
-type AdminPage = 'products' | 'categories' | 'users' | 'homepage' | 'theme';
-
-const AdminDashboard: FC = () => {
-    const { userProfile, loading } = useAuth();
-    const { navigate } = useNavigation();
-    const [page, setPage] = useState<AdminPage>('products');
+const ImagePickerModal: FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onImageSelect: (url: string) => void;
+}> = ({ isOpen, onClose, onImageSelect }) => {
+    const [activeTab, setActiveTab] = useState<'upload' | 'url' | 'gallery'>('upload');
+    const [galleryImages, setGalleryImages] = useState<{id: string, url: string}[]>([]);
+    const [loadingGallery, setLoadingGallery] = useState(false);
+    const [urlInput, setUrlInput] = useState('');
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (!loading && (!userProfile || userProfile.role !== 'admin')) {
-            navigate('home');
+        if (isOpen && activeTab === 'gallery') {
+            setLoadingGallery(true);
+            const imagesRef = db.ref('uploaded_images').orderByChild('uploadedAt');
+            const listener = imagesRef.on('value', snapshot => {
+                const data = snapshot.val();
+                const imageList = data ? Object.keys(data).map(key => ({ id: key, url: data[key].url })).reverse() : [];
+                setGalleryImages(imageList);
+                setLoadingGallery(false);
+            });
+            return () => imagesRef.off('value', listener);
         }
-    }, [userProfile, loading, navigate]);
-    
-    if (loading || !userProfile || userProfile.role !== 'admin') {
-        return <div className="py-40 text-center min-h-screen flex items-center justify-center">Loading or unauthorized...</div>;
-    }
+    }, [isOpen, activeTab]);
 
-    const renderPage = () => {
-        switch (page) {
-            case 'products':
-                return <ProductsManager />;
-            case 'categories':
-                return <CategoriesManager />;
-            case 'users':
-                return <UsersManager />;
-            case 'homepage':
-                return <HomepageSettingsManager />;
-            case 'theme':
-                return <ThemeSettingsManager />;
-            default:
-                return <ProductsManager />;
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setUploading(true);
+            try {
+                const url = await uploadAndSaveFile(file);
+                onImageSelect(url);
+            } catch (error) {
+                alert('Image upload failed. Please try again or use a URL.');
+            } finally {
+                setUploading(false);
+            }
+        }
+    };
+
+    const handleUrlSubmit = async () => {
+        if (urlInput) {
+            await saveImageUrlToGallery(urlInput);
+            onImageSelect(urlInput);
         }
     };
     
-    const navItems: { id: AdminPage, label: string }[] = [
+    if (!isOpen) return null;
+
+    return (
+         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in-up">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl h-[80vh] flex flex-col">
+                <div className="p-4 flex justify-between items-center border-b">
+                    <h3 className="text-xl font-bold">Select an Image</h3>
+                    <button onClick={onClose}><XIcon className="w-6 h-6"/></button>
+                </div>
+                <div className="flex border-b">
+                    <button onClick={() => setActiveTab('upload')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'upload' ? 'border-b-2 border-brand-green text-brand-green' : 'text-gray-500 hover:text-gray-700'}`}>Upload File</button>
+                    <button onClick={() => setActiveTab('url')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'url' ? 'border-b-2 border-brand-green text-brand-green' : 'text-gray-500 hover:text-gray-700'}`}>From URL</button>
+                    <button onClick={() => setActiveTab('gallery')} className={`px-4 py-3 text-sm font-medium ${activeTab === 'gallery' ? 'border-b-2 border-brand-green text-brand-green' : 'text-gray-500 hover:text-gray-700'}`}>My Uploads</button>
+                </div>
+                <div className="flex-grow overflow-y-auto p-6">
+                    {activeTab === 'upload' && (
+                        <div className="flex flex-col items-center justify-center h-full border-2 border-dashed border-gray-300 rounded-lg">
+                             <input type="file" id="image-upload-input" accept="image/*" onChange={handleImageUpload} className="hidden"/>
+                             <label htmlFor="image-upload-input" className="cursor-pointer text-center p-8">
+                                <p className="text-gray-500 mb-2">Drag and drop a file or</p>
+                                <span className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">Browse Files</span>
+                             </label>
+                             {uploading && <p className="mt-4 text-sm text-gray-600">Uploading...</p>}
+                        </div>
+                    )}
+                    {activeTab === 'url' && (
+                        <div className="flex flex-col items-center justify-center h-full">
+                            <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)} placeholder="https://example.com/image.jpg" className="w-full max-w-md p-2 border border-gray-300 rounded-md"/>
+                            <button onClick={handleUrlSubmit} className="mt-4 px-6 py-2 bg-brand-green text-white rounded-md hover:bg-opacity-90 font-medium">Use Image</button>
+                        </div>
+                    )}
+                    {activeTab === 'gallery' && (
+                        <div>
+                            {loadingGallery ? <p>Loading gallery...</p> : (
+                                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                                    {galleryImages.map(img => (
+                                        <button key={img.id} onClick={() => onImageSelect(img.url)} className="aspect-square border-2 border-transparent hover:border-brand-green rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-green">
+                                            <img src={img.url} alt="Uploaded" className="w-full h-full object-cover"/>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+const AdminDashboard: FC = () => {
+    const { userProfile } = useAuth();
+    const { navigate } = useNavigation();
+    const [activeTab, setActiveTab] = useState('products');
+    const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+    const [imagePickerCallback, setImagePickerCallback] = useState<((url: string) => void) | null>(null);
+
+    useEffect(() => {
+        if (!userProfile || userProfile.role !== 'admin') {
+            navigate('home');
+        }
+    }, [userProfile, navigate]);
+    
+    const openImagePicker = (callback: (url: string) => void) => {
+        setImagePickerCallback(() => callback);
+        setIsImagePickerOpen(true);
+    };
+
+    const handleImageSelect = (url: string) => {
+        if (imagePickerCallback) {
+            imagePickerCallback(url);
+        }
+        setIsImagePickerOpen(false);
+        setImagePickerCallback(null);
+    };
+
+    if (!userProfile || userProfile.role !== 'admin') {
+        return <div className="py-40 text-center">Redirecting...</div>;
+    }
+
+    const tabs = [
         { id: 'products', label: 'Products' },
         { id: 'categories', label: 'Categories' },
         { id: 'users', label: 'Users' },
-        { id: 'homepage', label: 'Homepage Settings' },
-        { id: 'theme', label: 'Theme & Site Settings' },
+        { id: 'homepage', label: 'Homepage' },
+        { id: 'pages', label: 'Page Settings' },
+        { id: 'theme', label: 'Theme & Global' },
     ];
-    
+
+    const renderActiveTab = () => {
+        switch(activeTab) {
+            case 'products': return <ProductsManager openImagePicker={openImagePicker} />;
+            case 'categories': return <CategoriesManager openImagePicker={openImagePicker} />;
+            case 'users': return <UsersManager />;
+            case 'homepage': return <HomepageSettingsManager openImagePicker={openImagePicker} />;
+            case 'pages': return <PageSettingsManager openImagePicker={openImagePicker} />;
+            case 'theme': return <ThemeAndGlobalSettingsManager openImagePicker={openImagePicker} />;
+            default: return null;
+        }
+    };
+
     return (
-        <section className="py-24 bg-gray-100 min-h-screen">
-            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h1 className="text-4xl font-serif font-bold text-center text-brand-dark mb-12">Admin Dashboard</h1>
-                <div className="flex flex-col md:flex-row gap-8 items-start">
-                    <aside className="md:w-1/4">
-                        <nav className="sticky top-28 bg-white p-4 rounded-lg shadow-md">
-                            <ul className="space-y-2">
-                                {navItems.map(item => (
-                                    <li key={item.id}>
-                                        <button 
-                                            onClick={() => setPage(item.id)}
-                                            className={`w-full text-left px-4 py-2 rounded-md transition-colors text-base font-medium ${page === item.id ? 'bg-brand-green text-white shadow-sm' : 'text-gray-700 hover:bg-gray-200'}`}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </nav>
-                    </aside>
-                    <main className="flex-1 w-full">
-                        {renderPage()}
-                    </main>
+        <section className="bg-gray-100 min-h-screen">
+             <ImagePickerModal 
+                isOpen={isImagePickerOpen}
+                onClose={() => setIsImagePickerOpen(false)}
+                onImageSelect={handleImageSelect}
+             />
+            <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="bg-white p-4 rounded-lg shadow-md mb-8">
+                    <div className="flex space-x-4 border-b overflow-x-auto scrollbar-hide">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === tab.id ? 'border-b-2 border-brand-green text-brand-green' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
+                {renderActiveTab()}
             </div>
         </section>
     );

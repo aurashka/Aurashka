@@ -81,6 +81,28 @@ export interface ProductVariant {
   price: number;
   oldPrice?: number;
   stock: number;
+  image?: string; // Optional image for this specific variant
+}
+
+export interface StructuredDescriptionItem {
+    id: string;
+    title: string;
+    content: string;
+}
+
+export interface ProductOffer {
+    title: string;
+    discountPercentage?: number;
+    discountAmount?: number;
+    highlightColor: string;
+    textColor: string;
+    endDate?: string; // ISO 8601 format
+    enabled: boolean;
+}
+
+export interface ProductRecommendations {
+    relatedProductIds?: { [key: string]: boolean };
+    relatedCategoryIds?: { [key: string]: boolean };
 }
 
 export interface Product {
@@ -89,7 +111,7 @@ export interface Product {
   price: number;
   oldPrice?: number;
   images: string[];
-  description: string;
+  description: string; // Fallback for old products
   category: string;
   subcategory?: string;
   isPopular?: boolean;
@@ -100,6 +122,11 @@ export interface Product {
   variants?: { [key:string]: Omit<ProductVariant, 'id'> }; // Firebase-friendly object
   isVisible?: boolean; // New visibility flag
   hasCustomOverlay?: boolean;
+  recommendations?: ProductRecommendations;
+  structuredDescription?: { [key: string]: Omit<StructuredDescriptionItem, 'id'> };
+  offer?: ProductOffer;
+  videoUrl?: string;
+  socialMediaLink?: string;
 }
 
 export interface QnA {
@@ -323,6 +350,9 @@ export interface ActionButtonSettings {
 
 export interface ProductPageSettings {
     shippingReturnsInfo: string;
+    enableRecommendedProducts?: boolean;
+    recommendationMode?: 'manual' | 'category' | 'random';
+    recommendedCategoryIds?: { [key: string]: boolean };
     buttons: {
         addToCart: Partial<ActionButtonSettings>;
         buyNow: Partial<ActionButtonSettings>;
@@ -370,4 +400,19 @@ export interface BottomBlendSettings {
     opacity: number; // 0 to 1
     height: string; // e.g., '300px', '40vh'
     displayOnThemes: { [key in Theme]?: boolean };
+}
+
+export interface AnnouncementBarSettings {
+    enabled: boolean;
+    text: string;
+    linkConfig?: {
+        linkType: 'none' | 'internal' | 'external' | 'product' | 'category';
+        link: string;
+        linkText?: string;
+    };
+    featuredProductOfferId?: string;
+    backgroundColor: string;
+    textColor: string;
+    displayOnThemes?: { [key in Theme]?: boolean };
+    position?: 'static' | 'sticky';
 }

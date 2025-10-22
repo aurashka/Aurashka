@@ -24,6 +24,7 @@ import DiwaliOverlays from './components/DiwaliOverlays';
 import FloatingDecorations from './components/FloatingDecorations';
 import HeaderOverlap from './components/HeaderOverlap';
 import BottomBlend from './components/BottomBlend';
+import AnnouncementBar from './components/AnnouncementBar';
 
 const PageRenderer = () => {
     const { page } = useNavigation();
@@ -200,6 +201,7 @@ const App: React.FC = () => {
       <CartProvider>
         <SettingsProvider>
             <div className="bg-brand-surface text-brand-text">
+                <AnnouncementBar />
                 <DiwaliOverlays />
                 <FloatingDecorations />
                 <HeaderOverlap />

@@ -5,6 +5,7 @@ import { useNavigation } from '../contexts/NavigationContext';
 import { useSiteSettings } from '../contexts/SettingsContext';
 import { CartIcon, EyeIcon, XIcon, PlusIcon, MinusIcon } from './Icons';
 import LazyImage from './LazyImage';
+import CountdownTimer from './CountdownTimer';
 
 interface ProductCardProps {
   product: Product;
@@ -28,9 +29,29 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, decorationImageUrl }
   }, [product.variants]);
 
   const hasVariants = productVariants.length > 0;
+  const offer = product.offer?.enabled ? product.offer : null;
 
-  const currentPrice = selectedVariant?.price ?? product.price ?? 0;
-  const currentOldPrice = selectedVariant?.oldPrice ?? product.oldPrice;
+  const calculatePrice = (basePrice: number, baseOldPrice?: number) => {
+    let price = basePrice;
+    let oldPrice = baseOldPrice;
+
+    if (offer) {
+        oldPrice = basePrice; // The original price becomes the old price
+        if (offer.discountPercentage) {
+            price = basePrice - (basePrice * offer.discountPercentage / 100);
+        } else if (offer.discountAmount) {
+            price = basePrice - offer.discountAmount;
+        }
+    }
+    return { price, oldPrice };
+  };
+
+  const { price: basePrice, oldPrice: baseOldPrice } = calculatePrice(product.price, product.oldPrice);
+  const { price: variantPrice, oldPrice: variantOldPrice } = selectedVariant ? calculatePrice(selectedVariant.price, selectedVariant.oldPrice) : { price: 0, oldPrice: undefined };
+  
+  const currentPrice = selectedVariant ? variantPrice : basePrice;
+  const currentOldPrice = selectedVariant ? variantOldPrice : baseOldPrice;
+
   const totalStock = useMemo(() => hasVariants
     ? productVariants.reduce((acc, v) => acc + v.stock, 0)
     : product.stock, [hasVariants, productVariants, product.stock]);
@@ -75,6 +96,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, decorationImageUrl }
   }
   
   const imageUrl = product?.images?.[0] || 'https://images.unsplash.com/photo-1580856526562-1b5e8a1c91f0?q=80&w=400&auto=format&fit=crop';
+  
+  const offerText = offer?.discountPercentage ? `${offer.discountPercentage}% OFF` : offer?.discountAmount ? `₹${offer.discountAmount} OFF` : offer?.title;
 
   return (
     <div 
@@ -92,7 +115,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, decorationImageUrl }
       )}
       <div className={`relative bg-brand-light-gray/70 cursor-pointer overflow-hidden rounded-lg ${applyOverlay ? 'has-custom-overlay' : ''}`}>
         <div className="absolute top-3 left-3 z-10 flex flex-col items-start gap-1">
-            {product.tags && Object.values(product.tags).slice(0, 2).map((tag, index) => (
+            {offer && (
+                <span className="text-xs font-bold px-2 py-1 rounded-full shadow-md" style={{ backgroundColor: offer.highlightColor, color: offer.textColor }}>
+                    {offerText}
+                </span>
+            )}
+            {product.tags && Object.values(product.tags).slice(0, offer ? 1 : 2).map((tag, index) => (
                 <span key={index} className="text-xs text-white px-2 py-1 rounded-full shadow" style={{ backgroundColor: (tag as Tag).color || '#6B7F73' }}>
                     {(tag as Tag).text}
                 </span>
@@ -162,12 +190,17 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, decorationImageUrl }
       </div>
       <div className="mt-4 text-center">
         <h3 className="text-lg font-serif text-brand-text hover:text-brand-green cursor-pointer" onClick={handleProductClick}>{product.name}</h3>
-        <p className="mt-1 text-sm text-brand-secondary">
-          <span className="text-brand-green font-bold">₹{currentPrice.toFixed(2)}{hasVariants && !selectedVariant ? '+' : ''}</span>
-          {currentOldPrice != null && (
-            <span className="ml-2 text-brand-secondary/70 line-through">₹{currentOldPrice.toFixed(2)}</span>
+        <div className="mt-1 text-sm text-brand-secondary flex justify-center items-center gap-2 flex-wrap">
+          <p>
+            <span className="text-brand-green font-bold">₹{currentPrice.toFixed(2)}{hasVariants && !selectedVariant ? '+' : ''}</span>
+            {currentOldPrice != null && (
+              <span className="ml-2 text-brand-secondary/70 line-through">₹{currentOldPrice.toFixed(2)}</span>
+            )}
+          </p>
+          {offer?.endDate && (
+              <CountdownTimer endDate={offer.endDate} className="text-xs scale-75 origin-center" />
           )}
-        </p>
+        </div>
       </div>
     </div>
   );
