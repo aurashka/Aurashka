@@ -8,14 +8,14 @@ declare global {
 
 // This file accesses the global 'firebase' object loaded from the scripts in index.html
 const firebaseConfig = {
-  apiKey: "AIzaSyAPPZgVrZF9SEaS42xx8RcsnM2i8EpenUQ",
-  authDomain: "creadit-loan-5203b.firebaseapp.com",
-  databaseURL: "https://creadit-loan-5203b-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "creadit-loan-5203b",
-  storageBucket: "creadit-loan-5203b.appspot.com",
-  messagingSenderId: "95634892627",
-  appId: "1:95634892627:web:1500052cb60f3b7e4823a6",
-  measurementId: "G-V60FZSL5V1"
+  apiKey: "AIzaSyAbNsuWWYS4c8ChFgRtweQjSTfdfVn6Pxg",
+  authDomain: "aurashka-web.firebaseapp.com",
+  databaseURL: "https://aurashka-web-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "aurashka-web",
+  storageBucket: "aurashka-web.firebasestorage.app",
+  messagingSenderId: "900002572213",
+  appId: "1:900002572213:web:052179ead49fc806585bfc",
+  measurementId: "G-TR1W4DWKG9"
 };
 
 // Initialize Firebase
