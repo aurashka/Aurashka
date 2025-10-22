@@ -2,6 +2,16 @@ import { type } from "os";
 
 export type Theme = 'light' | 'dark' | 'blue' | 'diwali' | 'diwali-dark';
 
+export interface SocialLoginProviderSettings {
+    enabled: boolean;
+}
+
+export interface SocialLoginSettings {
+    google?: SocialLoginProviderSettings;
+    apple?: SocialLoginProviderSettings;
+    facebook?: SocialLoginProviderSettings;
+}
+
 export interface DiwaliOverlaySetting {
     url?: string;
     darkUrl?: string;

@@ -14,6 +14,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Profile from './pages/Profile';
+// FIX: Correct the import statement to point to the correct file and ensure it has a default export.
 import AdminDashboard from './pages/AdminDashboard';
 import Shop from './pages/Shop';
 import Cart from './pages/Cart';

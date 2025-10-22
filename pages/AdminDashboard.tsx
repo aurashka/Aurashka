@@ -2,7 +2,7 @@ import React, { useEffect, useState, FC, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
 import { db } from '../firebase';
-import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings, EmbedScrollerSettings, EmbedSlide } from '../types';
+import { Product, User, Category, HeroSettings, SubCategory, SocialLink, ContactInfo, PosterSlide, OfferSectionSettings, ImageScrollerSettings, QnA, Tag, ProductVariant, HighlightedNoteSettings, FooterSettings, NavLink, FooterColumn, ActionButtonSettings, ProductPageSettings, Author, TestimonialsSettings, Theme, DiwaliThemeSettings, ThemeColors, ColorSet, DiwaliOverlaySetting, DecorativeOverlay, FloatingDecoration, HeaderOverlapImageSettings, ShopPageSettings, BottomBlendSettings, BestsellerListSettings, CategoryCardSettings, ProductShowcaseSettings, EmbedScrollerSettings, EmbedSlide, SocialLoginSettings } from '../types';
 import { allProducts as staticProducts, initialCategories } from '../constants';
 import { XIcon, TrashIcon, PlusIcon, ArrowRightIcon, ChevronDownIcon, PhoneIcon, MailIcon, CartIcon, SparkleIcon, StarIcon, LeafIcon } from '../components/Icons';
 
@@ -1287,6 +1287,7 @@ const getInitialThemeSettings = () => ({
     enableGlobalCardOverlay: false,
     mobileViewport: 'responsive' as 'responsive' | 'desktop',
     shopPage: { title: 'Our Products', subtitle: 'Discover our curated collection of nature-inspired beauty essentials.' } as ShopPageSettings,
+    socialLogin: { google: { enabled: true }, apple: { enabled: false }, facebook: { enabled: true } } as SocialLoginSettings,
     headerOverlapImage: { enabled: false, imageUrl: '', opacity: 1, position: 'full', width: '100%', height: '150px', top: '0px', zIndex: 25 } as HeaderOverlapImageSettings,
     bottomBlend: { enabled: false, imageUrl: '', darkImageUrl: '', opacity: 0.5, height: '350px', displayOnThemes: {} } as BottomBlendSettings,
 });
@@ -1733,174 +1734,104 @@ const ThemeSettingsManager: FC = () => {
                             </div>
                         )}
                         <div><label className="block text-sm font-medium text-gray-700">Logo</label><img src={settings.logoUrl || 'https://via.placeholder.com/128x32'} alt="Logo" className="h-10 my-2 border p-1 rounded bg-gray-50" /><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/><input type="text" placeholder="Or paste image URL" value={settings.logoUrl} onChange={e => handleSettingsChange('logoUrl', e.target.value)} className={`${inputStyle} mt-2`}/><button type="button" onClick={()=>handleSettingsChange('logoUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Logo</button></div>
-                        <h2 className="text-xl font-bold pt-4">Header Settings</h2>
-                         <div><label className="block text-sm font-medium text-gray-700">Navigation Links</label><div className="space-y-4 mt-2">{settings.header.navLinks && Object.entries(settings.header.navLinks).map(([id, link]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="grid grid-cols-1 md:grid-cols-8 gap-2 items-center"><input type="text" value={link.text} onChange={e => handleSettingsChange(`header.navLinks.${id}.text`, e.target.value)} className={`${inputStyle} col-span-2`} /><select value={link.linkType} onChange={e => { handleSettingsChange(`header.navLinks.${id}.link`, ''); handleSettingsChange(`header.navLinks.${id}.linkType`, e.target.value); }} className={`${inputStyle} col-span-2`}><option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option></select><div className="col-span-3">{link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{link.linkType === 'category' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div><button type="button" onClick={() => handleRemove(`header.navLinks.${id}`)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-5 h-5 mx-auto"/></button></div>
-                            <div>
-                                <label className="text-xs font-medium text-gray-600">Visible on themes:</label>
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
-                                    {themes.map(t => (
-                                        <label key={t.name} className="flex items-center space-x-1.5 text-xs font-medium text-gray-700">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={link.displayThemes ? (link.displayThemes[t.name] ?? false) : true}
-                                                onChange={e => handleThemeLinkChange(`header.navLinks.${id}`, t.name, e.target.checked)}
-                                            />
-                                            <span>{t.label}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                         </div>))}<button type="button" onClick={() => handleAdd('header.navLinks')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Nav Link</button></div></div>
-                    </div>
-                </CollapsibleSection>
-
-                <CollapsibleSection title="Footer Settings">
-                    <div className="max-w-3xl space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Footer Description</label>
-                            <textarea value={settings.footer?.description || ''} onChange={e => handleSettingsChange('footer.description', e.target.value)} className={inputStyle} rows={2}/>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Copyright Text</label>
-                            <input type="text" value={settings.footer?.copyrightText || ''} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder={`© ${new Date().getFullYear()} ${settings.siteTitle}. All rights reserved.`} className={inputStyle}/>
-                        </div>
                         
-                        <div className="p-4 border rounded-lg space-y-3">
-                            <h3 className="text-lg font-semibold">Contact Info</h3>
-                            <div><label className="block text-sm font-medium">Phone</label><input type="text" value={settings.footer?.contactInfo?.phone || ''} onChange={e => handleSettingsChange('footer.contactInfo.phone', e.target.value)} className={inputStyle}/></div>
-                            <div><label className="block text-sm font-medium">Email</label><input type="email" value={settings.footer?.contactInfo?.email || ''} onChange={e => handleSettingsChange('footer.contactInfo.email', e.target.value)} className={inputStyle}/></div>
-                            <div><label className="block text-sm font-medium">Location</label><input type="text" value={settings.footer?.contactInfo?.location || ''} onChange={e => handleSettingsChange('footer.contactInfo.location', e.target.value)} className={inputStyle}/></div>
+                        <div className="pt-4 border-t">
+                             <h3 className="text-lg font-semibold text-gray-800">Social Logins</h3>
+                             <p className="text-sm text-gray-600">Enable or disable social login providers on the Login page.</p>
+                             <div className="p-4 border rounded-lg space-y-3">
+                                 <label className="flex items-center justify-between cursor-pointer">
+                                     <span className="font-medium text-gray-800">Google Login</span>
+                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.google?.enabled || false} onChange={e => handleSettingsChange('socialLogin.google.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
+                                 </label>
+                                 <label className="flex items-center justify-between cursor-pointer border-t pt-3">
+                                     <span className="font-medium text-gray-800">Facebook Login</span>
+                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.facebook?.enabled || false} onChange={e => handleSettingsChange('socialLogin.facebook.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
+                                 </label>
+                                 <label className="flex items-center justify-between cursor-pointer border-t pt-3">
+                                     <span className="font-medium text-gray-800">Apple Login</span>
+                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.apple?.enabled || false} onChange={e => handleSettingsChange('socialLogin.apple.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
+                                 </label>
+                             </div>
                         </div>
-
-                        <div className="p-4 border rounded-lg space-y-3">
-                            <h3 className="text-lg font-semibold">Social Media</h3>
-                            <div>
-                                <label className="block text-sm font-medium">Icon Size (px)</label>
-                                <input type="number" value={settings.footer?.socialIconSize || 24} onChange={e => handleSettingsChange('footer.socialIconSize', Number(e.target.value))} className={inputStyle} style={{width: '100px'}}/>
-                            </div>
-                            {settings.footer?.socialLinks && Object.entries(settings.footer.socialLinks).map(([id, link]: [string, any]) => (
-                                <div key={id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center">
-                                    <select value={link.platform} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.platform`, e.target.value)} className={inputStyle}>
-                                        <option value="facebook">Facebook</option>
-                                        <option value="instagram">Instagram</option>
-                                        <option value="twitter">Twitter</option>
-                                        <option value="youtube">Youtube</option>
-                                        <option value="pinterest">Pinterest</option>
-                                        <option value="linkedin">Linkedin</option>
-                                    </select>
-                                    <input type="text" value={link.url} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.url`, e.target.value)} className={inputStyle} placeholder="https://..."/>
-                                    <button type="button" onClick={() => handleRemove(`footer.socialLinks.${id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
-                                </div>
-                            ))}
-                            <button type="button" onClick={() => handleAdd('footer.socialLinks')} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Social Link</button>
-                        </div>
-
-                        <div className="p-4 border rounded-lg space-y-3">
-                            <h3 className="text-lg font-semibold">Footer Columns & Links</h3>
-                            {settings.footer?.columns && Object.entries(settings.footer.columns).map(([colId, col]: [string, any]) => (
-                                <div key={colId} className="border p-3 rounded-md space-y-2 bg-gray-50/50">
-                                    <div className="flex justify-between items-center">
-                                        <input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${colId}.title`, e.target.value)} className={`${inputStyle} font-semibold`} placeholder="Column Title"/>
-                                        <button type="button" onClick={() => handleRemove(`footer.columns.${colId}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
-                                    </div>
-                                    {col.links && Object.entries(col.links).map(([linkId, link]: [string, any]) => (
-                                        <div key={linkId} className="border p-2 rounded bg-white">
-                                            <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_3fr_1.5fr_auto] gap-2 items-center">
-                                                <input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.text`, e.target.value)} className={inputStyle} placeholder="Link Text"/>
-                                                <select value={link.linkType} onChange={e => { handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, ''); handleSettingsChange(`footer.columns.${colId}.links.${linkId}.linkType`, e.target.value); }} className={inputStyle}>
-                                                    <option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option>
-                                                </select>
-                                                <div>
-                                                    {link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop"/>}
-                                                    {link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle} placeholder="https://..."/>}
-                                                    {link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}
-                                                    {link.linkType === 'category' && <select value={link.link} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}
-                                                </div>
-                                                <select value={link.icon || 'none'} onChange={e => handleSettingsChange(`footer.columns.${colId}.links.${linkId}.icon`, e.target.value)} className={inputStyle}>
-                                                    <option value="none">No Icon</option><option value="phone">Phone</option><option value="mail">Email</option><option value="cart">Cart</option><option value="arrowRight">Arrow</option>
-                                                </select>
-                                                <button type="button" onClick={() => handleRemove(`footer.columns.${colId}.links.${linkId}`)} className="text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4 mx-auto"/></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <button type="button" onClick={() => handleAdd(`footer.columns.${colId}.links`)} className="mt-2 text-xs font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-3 h-3"/> Add Link</button>
-                                </div>
-                            ))}
-                            <button type="button" onClick={() => handleAdd('footer.columns')} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Footer Column</button>
-                        </div>
-                    </div>
-                 </CollapsibleSection>
-
-                 <CollapsibleSection title="Product Page Settings">
-                    <div className="max-w-3xl space-y-4">
-                         <div><label className="block text-sm font-medium text-gray-700">Shipping & Returns Information</label><textarea value={settings.productPage?.shippingReturnsInfo || ''} onChange={e => handleSettingsChange('productPage.shippingReturnsInfo', e.target.value)} className={inputStyle} rows={4} placeholder="Enter shipping and returns info. Supports HTML."/></div>
-                         <h3 className="text-lg font-semibold pt-2">Page Buttons</h3>
-                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-md font-medium text-gray-800">"Add to Cart" Button</label>
-                                <ActionButtonEditor path="productPage.buttons.addToCart" settings={settings.productPage?.buttons?.addToCart || {}} onChange={handleSettingsChange} products={products} categories={categories} />
-                            </div>
-                             <div>
-                                <label className="block text-md font-medium text-gray-800">"Buy Now" Button</label>
-                                <ActionButtonEditor path="productPage.buttons.buyNow" settings={settings.productPage?.buttons?.buyNow || {}} onChange={handleSettingsChange} products={products} categories={categories} />
-                            </div>
-                         </div>
                     </div>
                 </CollapsibleSection>
             </form>
         </div>
-    )
-}
+    );
+};
 
-
-// --- Main Admin Dashboard Component ---
-const AdminDashboard: React.FC = () => {
-    const { currentUser, userProfile, logout } = useAuth();
+{/* FIX: Add the main AdminDashboard component and default export to resolve the build error. */}
+const AdminDashboard: FC = () => {
+    const { userProfile, logout } = useAuth();
     const { navigate } = useNavigation();
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('adminActiveTab') || 'products');
+    const [activeTab, setActiveTab] = useState('products');
 
     useEffect(() => {
-        localStorage.setItem('adminActiveTab', activeTab);
-    }, [activeTab]);
-
-    useEffect(() => {
-        if (!currentUser) {
+        if (!userProfile) {
             navigate('login');
-            return;
+        } else if (userProfile.role !== 'admin') {
+            navigate('home');
         }
+    }, [userProfile, navigate]);
 
-        if (userProfile) { // if user profile is loaded
-            if (userProfile.role !== 'admin') {
-                navigate('home'); // not an admin, go away
-            } else {
-                setLoading(false); // is an admin, show content
-            }
-        }
-        // if userProfile is null, we are still loading, so `loading` remains true.
-        // The effect will re-run when `userProfile` is updated by `AuthContext`.
-    }, [currentUser, userProfile, navigate]);
-    
-    const handleLogout = async () => { try { await logout(); navigate('home'); } catch {} };
-    if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Verifying access...</div>;
-
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'products': return <ProductsManager />;
-            case 'users': return <UsersManager />;
-            case 'categories': return <CategoriesManager />;
-            case 'homepage': return <HomepageSettingsManager />;
-            case 'theme': return <ThemeSettingsManager />;
-            default: return <ProductsManager />;
-        }
+    if (!userProfile || userProfile.role !== 'admin') {
+        return <div className="py-40 text-center min-h-screen flex items-center justify-center bg-gray-100 text-brand-dark">Checking permissions...</div>;
     }
-    const TabButton: FC<{tabName: string; label: string}> = ({ tabName, label }) => (<button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md ${activeTab === tabName ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-200'}`}>{label}</button>);
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('home');
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
+    };
+    
+    const tabs = [
+        { id: 'products', label: 'Products' },
+        { id: 'categories', label: 'Categories' },
+        { id: 'users', label: 'Users' },
+        { id: 'homepage', label: 'Homepage' },
+        { id: 'theme', label: 'Theme & Site' },
+    ];
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <header className="bg-white shadow-sm sticky top-0 z-10"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex items-center justify-between h-20"><a href="#" onClick={(e) => { e.preventDefault(); navigate('home'); }} className="flex items-center space-x-2"><img className="h-10 w-auto rounded-full" src="https://i.ibb.co/7j0b561/logo.png" alt="AURASHKA Logo" /><span className="text-xl font-serif tracking-widest uppercase text-brand-dark">Admin Panel</span></a><button onClick={handleLogout} className="text-sm font-medium text-gray-600 hover:text-brand-dark px-4 py-2 rounded-lg hover:bg-gray-50">Logout</button></div></div></header>
-            <main className="py-10"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="mb-6 bg-white p-2 rounded-lg shadow-sm flex items-center space-x-2 overflow-x-auto"><TabButton tabName="products" label="Products" /><TabButton tabName="categories" label="Categories" /><TabButton tabName="users" label="Users" /><TabButton tabName="homepage" label="Homepage Content" /><TabButton tabName="theme" label="Theme Settings" /></div><div className="space-y-6">{renderContent()}</div></div></main>
-        </div>
+        <section className="py-12 bg-gray-100 min-h-screen text-brand-dark">
+            <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+                <header className="flex justify-between items-center mb-8 pb-4 border-b">
+                    <h1 className="text-4xl font-serif font-bold">Admin Dashboard</h1>
+                    <div className="flex items-center space-x-4">
+                        <span className="text-gray-600">Welcome, <strong>{userProfile.name}</strong>!</span>
+                        <button onClick={() => navigate('home')} className="text-sm font-medium text-brand-green hover:underline">View Site</button>
+                        <button onClick={handleLogout} className="text-sm font-medium text-red-600 hover:underline">Logout</button>
+                    </div>
+                </header>
+
+                <div className="flex items-start">
+                    <nav className="w-48 flex-shrink-0">
+                        <ul className="space-y-2">
+                            {tabs.map(tab => (
+                                <li key={tab.id}>
+                                    <button 
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-brand-green text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+                    <main className="flex-1 ml-8">
+                         {activeTab === 'products' && <ProductsManager />}
+                         {activeTab === 'categories' && <CategoriesManager />}
+                         {activeTab === 'users' && <UsersManager />}
+                         {activeTab === 'homepage' && <HomepageSettingsManager />}
+                         {activeTab === 'theme' && <ThemeSettingsManager />}
+                    </main>
+                </div>
+            </div>
+        </section>
     );
 };
 

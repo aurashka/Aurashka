@@ -6,6 +6,7 @@ import { User } from '../types';
 interface AuthUser {
   uid: string;
   email: string | null;
+  displayName: string | null;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<any>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  loginWithProvider: (providerName: 'google' | 'facebook' | 'apple') => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +34,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to create or update user profile in DB after social login
+  const updateUserProfile = (user: AuthUser) => {
+    const userRef = db.ref(`users/${user.uid}`);
+    return userRef.once('value').then(snapshot => {
+      if (!snapshot.exists()) {
+        // User is new, create a profile
+        return userRef.set({
+          name: user.displayName || 'New User',
+          email: user.email,
+          phone: '', // Phone number not provided by social logins
+          role: 'user',
+        });
+      }
+    });
+  };
 
   function signup(name: string, email: string, phone: string, pass: string) {
     return auth.createUserWithEmailAndPassword(email, pass).then((cred: { user: { uid: any; }; }) => {
@@ -55,6 +73,30 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   function resetPassword(email: string) {
     return auth.sendPasswordResetEmail(email);
   }
+  
+  function loginWithProvider(providerName: 'google' | 'facebook' | 'apple') {
+    let provider;
+    switch(providerName) {
+      case 'google':
+        provider = new window.firebase.auth.GoogleAuthProvider();
+        break;
+      case 'facebook':
+        provider = new window.firebase.auth.FacebookAuthProvider();
+        break;
+      case 'apple':
+        provider = new window.firebase.auth.OAuthProvider('apple.com');
+        break;
+      default:
+        return Promise.reject('Invalid provider');
+    }
+    
+    return auth.signInWithPopup(provider).then((result: { user: AuthUser; }) => {
+        if (result.user) {
+          return updateUserProfile(result.user);
+        }
+    });
+  }
+
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user: AuthUser | null) => {
@@ -85,6 +127,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     login,
     logout,
     resetPassword,
+    loginWithProvider,
   };
 
   return (

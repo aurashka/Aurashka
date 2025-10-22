@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '../contexts/NavigationContext';
-import { XIcon } from '../components/Icons';
+import { useSiteSettings } from '../contexts/SettingsContext';
+import { XIcon, GoogleIcon, AppleIcon, FacebookIcon } from '../components/Icons';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, userProfile, resetPassword } = useAuth();
+  const { login, userProfile, resetPassword, loginWithProvider } = useAuth();
   const { navigate } = useNavigation();
+  const settings = useSiteSettings();
+  const socialLoginSettings = settings.socialLogin;
 
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -39,6 +42,24 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+  
+  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'apple') => {
+    try {
+      setError('');
+      setLoading(true);
+      await loginWithProvider(provider);
+      // Navigation is handled by useEffect
+    } catch(err: any) {
+      console.error(err);
+      let message = 'Failed to log in with social provider.';
+      if (err.code === 'auth/account-exists-with-different-credential') {
+          message = 'An account already exists with the same email address. Sign in using the original method.'
+      }
+      setError(message);
+    } finally {
+        setLoading(false);
+    }
+  }
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,6 +143,47 @@ const Login: React.FC = () => {
               </button>
             </p>
           </div>
+          {(socialLoginSettings?.google?.enabled || socialLoginSettings?.facebook?.enabled || socialLoginSettings?.apple?.enabled) && (
+            <>
+                <div className="mt-6 flex items-center">
+                    <div className="flex-grow border-t border-brand-light-gray"></div>
+                    <span className="flex-shrink mx-4 text-brand-secondary text-sm">OR</span>
+                    <div className="flex-grow border-t border-brand-light-gray"></div>
+                </div>
+                <div className="mt-6 space-y-3">
+                    {socialLoginSettings?.google?.enabled && (
+                        <button
+                            onClick={() => handleSocialLogin('google')}
+                            disabled={loading}
+                            className="w-full inline-flex justify-center items-center py-2 px-4 border border-brand-light-gray rounded-md shadow-sm bg-brand-surface text-sm font-medium text-brand-text hover:bg-brand-light-gray/50"
+                        >
+                            <GoogleIcon className="w-5 h-5 mr-2" />
+                            Sign in with Google
+                        </button>
+                    )}
+                    {socialLoginSettings?.facebook?.enabled && (
+                        <button
+                            onClick={() => handleSocialLogin('facebook')}
+                            disabled={loading}
+                            className="w-full inline-flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-[#1877F2] text-sm font-medium text-white hover:bg-[#166fe5]"
+                        >
+                            <FacebookIcon className="w-5 h-5 mr-2" />
+                            Sign in with Facebook
+                        </button>
+                    )}
+                    {socialLoginSettings?.apple?.enabled && (
+                        <button
+                            onClick={() => handleSocialLogin('apple')}
+                            disabled={loading}
+                            className="w-full inline-flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm bg-black text-sm font-medium text-white hover:bg-gray-800"
+                        >
+                            <AppleIcon className="w-5 h-5 mr-2" />
+                            Sign in with Apple
+                        </button>
+                    )}
+                </div>
+            </>
+        )}
         </div>
       </section>
 
