@@ -197,6 +197,7 @@ export interface HeroSettings {
   imageStyles?: {
     desktop: HeroImageStyles;
     mobile: HeroImageStyles;
+    tablet: HeroImageStyles;
   };
 }
 

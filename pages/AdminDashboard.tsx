@@ -665,10 +665,14 @@ const CategoriesManager: FC<{ openImagePicker: (callback: (url: string) => void)
 
 
 // --- Homepage Settings Component ---
-const HeroPreview: FC<{ settings: Partial<HeroSettings>, previewMode: 'desktop' | 'mobile' }> = ({ settings, previewMode }) => {
+const HeroPreview: FC<{ settings: Partial<HeroSettings>, previewMode: 'desktop' | 'mobile' | 'tablet' }> = ({ settings, previewMode }) => {
     if (!settings) return null;
 
-    const styles: Partial<HeroImageStyles> = (previewMode === 'desktop' ? settings.imageStyles?.desktop : settings.imageStyles?.mobile) || {};
+    const styles: Partial<HeroImageStyles> = 
+        (previewMode === 'desktop' ? settings.imageStyles?.desktop : 
+        previewMode === 'tablet' ? settings.imageStyles?.tablet :
+        settings.imageStyles?.mobile) || {};
+
     const zoom = styles.zoom || 100;
     const focusX = styles.focusX ?? 50;
     const focusY = styles.focusY ?? 50;
@@ -683,7 +687,11 @@ const HeroPreview: FC<{ settings: Partial<HeroSettings>, previewMode: 'desktop' 
         objectFit: 'cover'
     };
     
-    const containerClasses = `relative flex items-center rounded-md overflow-hidden bg-gray-200 transition-all duration-300 ease-in-out ${previewMode === 'mobile' ? 'w-[250px] h-[445px] mx-auto border-8 border-gray-800 rounded-[2rem]' : 'w-full min-h-[250px]'}`;
+    const containerClasses = `relative flex items-center rounded-md overflow-hidden bg-gray-200 transition-all duration-300 ease-in-out ${
+        previewMode === 'mobile' ? 'w-[250px] h-[445px] mx-auto border-8 border-gray-800 rounded-[2rem]' : 
+        previewMode === 'tablet' ? 'w-[400px] h-[533px] mx-auto border-8 border-gray-800 rounded-[2rem]' : 
+        'w-full min-h-[250px]'
+    }`;
 
     return (
         <div className="mt-4 border p-4 rounded-lg relative">
@@ -738,7 +746,7 @@ const EmbedScrollerPreview: FC<{ section: EmbedScrollerSettings }> = ({ section 
 const getInitialHomepageSettings = () => ({
     productShowcaseSection: { 
         enabled: true, 
-        image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", 
+        image: "https://images.unsplash.com/photo-1557534401-4e7a833215f6?q=80&w=1887&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", 
         text: "Discover Yourself", 
         location: 'default', 
         order: 20 
@@ -766,7 +774,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(false);
     const [overlayOpacity, setOverlayOpacity] = useState(50);
-    const [heroPreviewMode, setHeroPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
+    const [heroPreviewMode, setHeroPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
 
     useEffect(() => {
         const settingsRef = db.ref('site_settings');
@@ -848,7 +856,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                 <div className="flex justify-between items-center"><h1 className="text-3xl font-serif font-bold text-brand-dark">Homepage Settings</h1><button type="submit" disabled={loading} className="bg-brand-green text-white px-8 py-3 rounded-full font-medium disabled:bg-gray-400">{loading ? 'Saving...' : 'Save Homepage Settings'}</button></div>
 
                 <CollapsibleSection title="Hero Section (Top Banner)" startsOpen={true}>
-                    <div className="space-y-4 max-w-3xl">
+                    <div className="space-y-4 max-w-4xl">
                         <div className="flex gap-4">
                             <input type="text" value={settings.heroSection?.image || ''} onChange={e => handleSettingsChange('heroSection.image', e.target.value)} className={`${inputStyle} flex-grow`} placeholder="Paste image URL" />
                             <button type="button" onClick={() => openImagePicker((url) => handleSettingsChange('heroSection.image', url))} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Browse</button>
@@ -857,7 +865,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                     
                     <div className="p-3 border rounded-lg space-y-4">
                         <label className="block text-sm font-bold text-gray-700">Image Styling</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                                 <h4 className="font-semibold mb-2">Desktop</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
@@ -866,6 +874,15 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                                 <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
                                 <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusY', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                            </div>
+                             <div>
+                                <h4 className="font-semibold mb-2">Tablet</h4>
+                                <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.tablet?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.tablet?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusY', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.focusY || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusY', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                             </div>
                              <div>
                                 <h4 className="font-semibold mb-2">Mobile</h4>
@@ -903,6 +920,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                     </div>
                     <div className="flex space-x-2">
                         <button type="button" onClick={() => setHeroPreviewMode('desktop')} className={`px-4 py-2 text-sm rounded-md ${heroPreviewMode === 'desktop' ? 'bg-brand-green text-white' : 'bg-gray-200'}`}>Desktop Preview</button>
+                        <button type="button" onClick={() => setHeroPreviewMode('tablet')} className={`px-4 py-2 text-sm rounded-md ${heroPreviewMode === 'tablet' ? 'bg-brand-green text-white' : 'bg-gray-200'}`}>Tablet Preview</button>
                         <button type="button" onClick={() => setHeroPreviewMode('mobile')} className={`px-4 py-2 text-sm rounded-md ${heroPreviewMode === 'mobile' ? 'bg-brand-green text-white' : 'bg-gray-200'}`}>Mobile Preview</button>
                     </div>
                     <HeroPreview settings={settings.heroSection} previewMode={heroPreviewMode} /></div>

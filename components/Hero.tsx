@@ -8,7 +8,7 @@ import LazyImage from './LazyImage';
 const Hero: React.FC = () => {
     const { navigate } = useNavigation();
     const [content, setContent] = useState<Partial<HeroSettings>>({
-        image: 'https://images.unsplash.com/photo-1598453532392-0a174393c9d0?q=80&w=2070&auto=format&fit=crop&ixlib-rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+        image: 'https://images.unsplash.com/photo-1598453532392-0a174393c9d0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
         preheadline: 'Natural beauty products on display',
         headline: 'Made for you!',
         subheadline: 'It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum.',
@@ -23,7 +23,8 @@ const Hero: React.FC = () => {
         },
         imageStyles: {
             desktop: { zoom: 100, focusX: 50, focusY: 50 },
-            mobile: { zoom: 100, focusX: 50, focusY: 50 }
+            mobile: { zoom: 100, focusX: 50, focusY: 50 },
+            tablet: { zoom: 100, focusX: 50, focusY: 50 }
         }
     });
     const [overlay, setOverlay] = useState<DecorativeOverlay | null>(null);
@@ -83,6 +84,11 @@ const Hero: React.FC = () => {
     const desktopFocusX = content.imageStyles?.desktop?.focusX ?? 50;
     const desktopFocusY = content.imageStyles?.desktop?.focusY ?? 50;
     const desktopFocus = `${desktopFocusX}% ${desktopFocusY}%`;
+    
+    const tabletZoom = content.imageStyles?.tablet?.zoom || 100;
+    const tabletFocusX = content.imageStyles?.tablet?.focusX ?? 50;
+    const tabletFocusY = content.imageStyles?.tablet?.focusY ?? 50;
+    const tabletFocus = `${tabletFocusX}% ${tabletFocusY}%`;
 
     const mobileZoom = content.imageStyles?.mobile?.zoom || 100;
     const mobileFocusX = content.imageStyles?.mobile?.focusX ?? 50;
@@ -96,7 +102,13 @@ const Hero: React.FC = () => {
         object-position: ${mobileFocus};
         transition: transform 0.3s ease-out, object-position 0.3s ease-out;
       }
-      @media (min-width: 768px) {
+      @media (min-width: 768px) and (max-width: 1023px) {
+        .hero-image {
+          transform: scale(${tabletZoom / 100});
+          object-position: ${tabletFocus};
+        }
+      }
+      @media (min-width: 1024px) {
         .hero-image {
           transform: scale(${desktopZoom / 100});
           object-position: ${desktopFocus};
