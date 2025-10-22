@@ -693,13 +693,15 @@ const HeroPreview: FC<{ settings: Partial<HeroSettings>, previewMode: 'desktop' 
         'w-full min-h-[250px]'
     }`;
 
+    const contentScale = previewMode === 'desktop' ? 'scale-75' : 'scale-50';
+
     return (
         <div className="mt-4 border p-4 rounded-lg relative">
             <h3 className="text-sm font-semibold mb-2">Live Preview</h3>
             <div className={containerClasses}>
                 {settings.image && <img src={settings.image} alt="preview" style={imageStyle} />}
                 <div className="absolute inset-0" style={{ backgroundColor: settings.overlayColor || 'rgba(255, 255, 255, 0.5)' }}></div>
-                <div className="relative max-w-xl mx-auto px-4 w-full scale-50 md:scale-75 origin-left">
+                <div className={`relative max-w-xl mx-auto px-4 w-full ${contentScale} origin-left`}>
                     <p className="font-script text-brand-green" style={{ fontSize: `${settings.fontSizes?.preheadline || 24}px` }}>{settings.preheadline || 'Pre-headline'}</p>
                     <h1 className="mt-1 font-extrabold font-serif text-brand-dark tracking-tight" style={{ fontSize: `${settings.fontSizes?.headline || 48}px`, lineHeight: 1.1 }}>{settings.headline || 'Headline'}</h1>
                     <p className="mt-3 text-sm text-gray-600" style={{ fontSize: `${settings.fontSizes?.subheadline || 16}px` }}>{settings.subheadline || 'Sub-headline text will go here.'}</p>
@@ -869,7 +871,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                             <div>
                                 <h4 className="font-semibold mb-2">Desktop</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
-                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="500" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
                                 <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.desktop?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.desktop.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
@@ -878,7 +880,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                              <div>
                                 <h4 className="font-semibold mb-2">Tablet</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
-                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="500" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
                                 <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.tablet?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.tablet?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.tablet.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
@@ -887,7 +889,7 @@ const HomepageSettingsManager: FC<{ openImagePicker: (callback: (url: string) =>
                              <div>
                                 <h4 className="font-semibold mb-2">Mobile</h4>
                                 <label className="block text-xs font-medium text-gray-600">Zoom (%)</label>
-                                <div className="flex items-center gap-2"><input type="range" min="100" max="200" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
+                                <div className="flex items-center gap-2"><input type="range" min="0" max="500" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.zoom || 100} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.zoom', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus X (%)</label>
                                 <div className="flex items-center gap-2"><input type="range" min="0" max="100" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/><input type="number" value={settings.heroSection?.imageStyles?.mobile?.focusX || 50} onChange={e => handleSettingsChange('heroSection.imageStyles.mobile.focusX', Number(e.target.value))} className="w-20 p-1 border rounded text-sm"/></div>
                                 <label className="block text-xs font-medium text-gray-600 mt-2">Focus Y (%)</label>
