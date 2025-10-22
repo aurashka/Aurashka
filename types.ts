@@ -176,7 +176,7 @@ export interface HeroSettings {
 
 export interface SocialLink {
     id: string;
-    platform: 'facebook' | 'instagram' | 'twitter' | 'youtube' | 'pinterest' | 'linkedin';
+    platform: 'facebook' | 'instagram' | 'twitter' | 'youtube' | 'pinterest' | 'linkedin' | 'tiktok' | 'whatsapp' | 'telegram';
     url: string;
 }
 
@@ -217,9 +217,11 @@ export interface EmbedScrollerSettings {
   slides: { [key: string]: Omit<EmbedSlide, 'id'> };
   location: 'top' | 'default' | 'bottom';
   order: number;
-  height: string; // e.g., '500px', '70vh'
+  height: string; // e.g., '250px'
   autoplay: boolean;
   interval: number; // in milliseconds
+  slideWidth: string; // e.g. '300px', '80%'
+  slideAspectRatio: string; // e.g. '16/9', '1/1', 'auto'
 }
 
 

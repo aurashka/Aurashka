@@ -500,6 +500,32 @@ const HeroPreview: FC<{ settings: Partial<HeroSettings> }> = ({ settings }) => {
     );
 };
 
+const EmbedScrollerPreview: FC<{ section: EmbedScrollerSettings }> = ({ section }) => {
+    const slides = useMemo(() => section.slides ? (Object.values(section.slides) as Omit<EmbedSlide, 'id'>[]).map((slide, index) => ({ ...slide, id: Object.keys(section.slides)[index] })) : [], [section.slides]);
+
+    if (!section.enabled || slides.length === 0) {
+        return <div className="text-center text-sm text-gray-500 p-4 border rounded-lg bg-gray-50 mt-4">Preview will appear here when enabled and slides are added.</div>;
+    }
+    
+    return (
+        <div className="mt-4 p-2 border rounded-lg bg-gray-100">
+            <h4 className="text-sm font-semibold mb-2 text-center text-gray-600">Live Preview</h4>
+            <div className="w-full" style={{ height: section.height || '150px' }}>
+                <div className="flex h-full overflow-x-auto scrollbar-hide">
+                    {slides.map((slide, index) => (
+                        <div key={`${slide.id}-${index}`} className="flex-shrink-0 h-full mx-2 rounded-md overflow-hidden shadow" style={{ width: section.slideWidth || '200px', aspectRatio: section.slideAspectRatio || '16/9', backgroundColor: '#333', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                            <div className="p-2">
+                                <p className="font-bold text-xs uppercase">{slide.type}</p>
+                                <p className="text-xs truncate">{slide.caption || slide.content}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const getInitialHomepageSettings = () => ({
     productShowcaseSection: { 
         enabled: true, 
@@ -660,7 +686,7 @@ const HomepageSettingsManager: FC = () => {
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 border rounded-md">
                              <input type="text" value={settings.heroSection.buttonText || ''} onChange={e => handleSettingsChange('heroSection.buttonText', e.target.value)} placeholder="Button Text" className={inputStyle} />
                              <select value={settings.heroSection.buttonLinkType || 'none'} onChange={e => { handleSettingsChange('heroSection.buttonLink', ''); handleSettingsChange('heroSection.buttonLinkType', e.target.value); }} className={inputStyle}>
-                                <option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option>
+                                <option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option>
                             </select>
                              <div>
                                 {settings.heroSection.buttonLinkType === 'internal' && <input type="text" value={settings.heroSection.buttonLink || ''} onChange={e => handleSettingsChange(`heroSection.buttonLink`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}
@@ -949,7 +975,7 @@ const HomepageSettingsManager: FC = () => {
                  <CollapsibleSection title="Auto-Scrolling Posters">
                      <div className="max-w-3xl space-y-4">{/* Image Scroller */}
                         <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={settings.imageScroller?.enabled || false} onChange={e => handleSettingsChange('imageScroller.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
-                         {settings.imageScroller?.enabled && <div className="space-y-4 mt-4">{settings.imageScroller.slides && Object.entries(settings.imageScroller.slides).map(([id, slide]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="flex items-start gap-4"><div className="w-1/3"><label className="block text-sm font-medium text-gray-700 mb-1">Poster Image</label><img src={slide.image || 'https://via.placeholder.com/150x200'} alt="poster" className="w-full aspect-[3/4] object-cover rounded border bg-gray-100" /></div><div className="w-2/3 space-y-2"><input type="text" value={slide.image} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" onChange={e => handleImageUpload(e, `imageScroller.slides.${id}.image`)} className="text-sm w-full"/><input type="text" value={slide.altText} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.altText`, e.target.value)} placeholder="Alt Text" className={inputStyle} /></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center"><select value={slide.linkType} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.linkType`, e.target.value)} className={inputStyle}><option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option></select><div>{slide.linkType === 'internal' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{slide.linkType === 'external' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{slide.linkType === 'product' && <select value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{slide.linkType === 'category' && <select value={slide.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`imageScroller.slides.${id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div></div><button type="button" onClick={() => handleRemove(`imageScroller.slides.${id}`)} className="text-sm text-red-600 hover:underline">Remove Slide</button></div>))}<button type="button" onClick={() => handleAdd('imageScroller.slides', { image: '', linkType: 'none', link: '' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button></div>}
+                         {settings.imageScroller?.enabled && <div className="space-y-4 mt-4">{settings.imageScroller.slides && Object.entries(settings.imageScroller.slides).map(([id, slide]: [string, any]) => (<div key={id} className="border p-3 rounded-md space-y-2"><div className="flex items-start gap-4"><div className="w-1/3"><label className="block text-sm font-medium text-gray-700 mb-1">Poster Image</label><img src={slide.image || 'https://via.placeholder.com/150x200'} alt="poster" className="w-full aspect-[3/4] object-cover rounded border bg-gray-100" /></div><div className="w-2/3 space-y-2"><input type="text" value={slide.image} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.image`, e.target.value)} placeholder="Image URL" className={inputStyle} /><input type="file" onChange={e => handleImageUpload(e, `imageScroller.slides.${id}.image`)} className="text-sm w-full"/><input type="text" value={slide.altText} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.altText`, e.target.value)} placeholder="Alt Text" className={inputStyle} /></div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-center"><select value={slide.linkType} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.linkType`, e.target.value)} className={inputStyle}><option value="none">No Link</option><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option></select><div>{slide.linkType === 'internal' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{slide.linkType === 'external' && <input type="text" value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{slide.linkType === 'product' && <select value={slide.link} onChange={e => handleSettingsChange(`imageScroller.slides.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{slide.linkType === 'category' && <select value={slide.link?.split(':')[0]} onChange={e => { const cat = categories.find(c=>c.id===e.target.value); handleSettingsChange(`imageScroller.slides.${id}.link`, `${cat?.id}:${cat?.name}`);}} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div></div><button type="button" onClick={() => handleRemove(`imageScroller.slides.${id}`)} className="text-sm text-red-600 hover:underline">Remove Slide</button></div>))}<button type="button" onClick={() => handleAdd('imageScroller.slides', { image: '', linkType: 'none', link: '' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button></div>}
                     </div>
                 </CollapsibleSection>
 
@@ -963,11 +989,13 @@ const HomepageSettingsManager: FC = () => {
                                     <button type="button" onClick={() => handleRemove(`embedScrollers.${section.id}`)} className="text-red-500 hover:text-red-700 p-2"><TrashIcon className="w-5 h-5"/></button>
                                 </div>
                                 <label className="flex items-center space-x-3 cursor-pointer"><input type="checkbox" checked={section.enabled} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.enabled`, e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/><span>Enable this section</span></label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <input type="text" value={section.title} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.title`, e.target.value)} placeholder="Section Title" className={inputStyle}/>
                                     <input type="number" value={section.order} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.order`, Number(e.target.value))} placeholder="Display Order" className={inputStyle}/>
                                     <select value={section.location || 'default'} onChange={e=>handleSettingsChange(`embedScrollers.${section.id}.location`, e.target.value)} className={inputStyle}><option value="top">Top</option><option value="default">Default</option><option value="bottom">Bottom</option></select>
-                                    <input type="text" value={section.height} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.height`, e.target.value)} placeholder="Height (e.g., 60vh, 500px)" className={inputStyle}/>
+                                    <input type="text" value={section.height} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.height`, e.target.value)} placeholder="Height (e.g., 250px)" className={inputStyle}/>
+                                    <input type="text" value={section.slideWidth || '300px'} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.slideWidth`, e.target.value)} placeholder="Slide Width (e.g., 300px)" className={inputStyle}/>
+                                    <input type="text" value={section.slideAspectRatio || '16/9'} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.slideAspectRatio`, e.target.value)} placeholder="Aspect Ratio (e.g., 16/9)" className={inputStyle}/>
                                 </div>
                                 <div className="flex items-center space-x-4">
                                     <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={section.autoplay} onChange={e => handleSettingsChange(`embedScrollers.${section.id}.autoplay`, e.target.checked)} className="h-4 w-4"/><span>Autoplay</span></label>
@@ -989,9 +1017,10 @@ const HomepageSettingsManager: FC = () => {
                                     ))}
                                     <button type="button" onClick={() => handleAdd(`embedScrollers.${section.id}.slides`, { type: 'youtube', content: '', caption: '' })} className="mt-2 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Slide</button>
                                 </div>
+                                <EmbedScrollerPreview section={section} />
                             </div>
                         ))}
-                        <button type="button" onClick={() => handleAdd('embedScrollers', { enabled: true, title: 'New Scroller', slides: {}, order: (Object.keys(settings.embedScrollers || {}).length + 1) * 10, location: 'default', height: '60vh', autoplay: true, interval: 5000 })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Embed Scroller Section</button>
+                        <button type="button" onClick={() => handleAdd('embedScrollers', { enabled: true, title: 'New Scroller', slides: {}, order: (Object.keys(settings.embedScrollers || {}).length + 1) * 10, location: 'default', height: '250px', autoplay: true, interval: 3000, slideWidth: '320px', slideAspectRatio: '16/9' })} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Embed Scroller Section</button>
                     </div>
                 </CollapsibleSection>
 
@@ -1132,7 +1161,7 @@ const ActionButtonEditor: FC<{ path: string, settings: Partial<ActionButtonSetti
                     <div><label className="block text-sm font-medium">Icon</label><select value={settings.icon || 'none'} onChange={e => onChange(`${path}.icon`, e.target.value)} className={inputStyle}><option value="none">None</option><option value="cart">Cart</option><option value="arrowRight">Arrow</option><option value="phone">Phone</option><option value="mail">Email</option></select></div>
                     <div><label className="block text-sm font-medium">Style</label><select value={settings.style || 'primary'} onChange={e => onChange(`${path}.style`, e.target.value)} className={inputStyle}><option value="primary">Primary (Green)</option><option value="secondary">Secondary (Dark)</option></select></div>
                 </div>
-                <div><label className="block text-sm font-medium">Action / Link Type</label><select value={settings.linkType || 'default'} onChange={e => { onChange(`${path}.link`, ''); onChange(`${path}.linkType`, e.target.value); }} className={inputStyle}><option value="default">Default E-commerce Action</option><option value="internal">Internal Page</option><option value="external">External URL</option><option value="product">Product</option><option value="category">Category</option><option value="phone">Phone Number</option><option value="email">Email Address</option></select></div>
+                <div><label className="block text-sm font-medium">Action / Link Type</label><select value={settings.linkType || 'default'} onChange={e => { onChange(`${path}.link`, ''); onChange(`${path}.linkType`, e.target.value); }} className={inputStyle}><option value="default">Default E-commerce Action</option><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option><option value="phone">Phone Number</option><option value="email">Email Address</option></select></div>
                 {settings.linkType && settings.linkType !== 'default' && <div><label className="block text-sm font-medium">Link Target</label>
                     {settings.linkType === 'internal' && <input type="text" value={settings.link || ''} onChange={e => onChange(`${path}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop"/>}
                     {settings.linkType === 'external' && <input type="text" value={settings.link || ''} onChange={e => onChange(`${path}.link`, e.target.value)} className={inputStyle} placeholder="https://..."/>}
@@ -1730,28 +1759,69 @@ const ThemeSettingsManager: FC = () => {
                                 {settings.siteTitleImageUrl && <img src={settings.siteTitleImageUrl} alt="Site Title" className="h-12 my-2 border p-1 rounded bg-white" />}
                                 <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'siteTitleImageUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
                                 <input type="text" placeholder="Or paste image URL" value={settings.siteTitleImageUrl || ''} onChange={e => handleSettingsChange('siteTitleImageUrl', e.target.value)} className={`${inputStyle} mt-2`}/>
-                                <button type="button" onClick={()=>handleSettingsChange('siteTitleImageUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
+                                <button type="button" onClick={() => handleSettingsChange('siteTitleImageUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Image</button>
                             </div>
                         )}
-                        <div><label className="block text-sm font-medium text-gray-700">Logo</label><img src={settings.logoUrl || 'https://via.placeholder.com/128x32'} alt="Logo" className="h-10 my-2 border p-1 rounded bg-gray-50" /><input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/><input type="text" placeholder="Or paste image URL" value={settings.logoUrl} onChange={e => handleSettingsChange('logoUrl', e.target.value)} className={`${inputStyle} mt-2`}/><button type="button" onClick={()=>handleSettingsChange('logoUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Logo</button></div>
-                        
-                        <div className="pt-4 border-t">
-                             <h3 className="text-lg font-semibold text-gray-800">Social Logins</h3>
-                             <p className="text-sm text-gray-600">Enable or disable social login providers on the Login page.</p>
-                             <div className="p-4 border rounded-lg space-y-3">
-                                 <label className="flex items-center justify-between cursor-pointer">
-                                     <span className="font-medium text-gray-800">Google Login</span>
-                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.google?.enabled || false} onChange={e => handleSettingsChange('socialLogin.google.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
-                                 </label>
-                                 <label className="flex items-center justify-between cursor-pointer border-t pt-3">
-                                     <span className="font-medium text-gray-800">Facebook Login</span>
-                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.facebook?.enabled || false} onChange={e => handleSettingsChange('socialLogin.facebook.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
-                                 </label>
-                                 <label className="flex items-center justify-between cursor-pointer border-t pt-3">
-                                     <span className="font-medium text-gray-800">Apple Login</span>
-                                     <div className="relative inline-flex items-center"><input type="checkbox" checked={settings.socialLogin?.apple?.enabled || false} onChange={e => handleSettingsChange('socialLogin.apple.enabled', e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-green"></div></div>
-                                 </label>
-                             </div>
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700">Site Logo</label>
+                            {settings.logoUrl && <img src={settings.logoUrl} alt="Logo" className="w-16 h-16 rounded-full my-2 border p-1 bg-white"/>}
+                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="text-sm w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                            <input type="text" placeholder="Or paste logo URL" value={settings.logoUrl || ''} onChange={e => handleSettingsChange('logoUrl', e.target.value)} className={`${inputStyle} mt-2`}/>
+                            <button type="button" onClick={() => handleSettingsChange('logoUrl', '')} className="text-xs text-red-500 hover:underline mt-1">Remove Logo</button>
+                        </div>
+                        <h2 className="text-xl font-bold pt-4 border-t">Header Navigation Links</h2>
+                        <div className="space-y-4">{settings.header.navLinks && Object.entries(settings.header.navLinks).map(([id, link]: [string, any]) => (<div key={id} className="border p-4 rounded-md space-y-3"><div className="flex justify-end"><button type="button" onClick={() => handleRemove(`header.navLinks.${id}`)} className="text-red-500 hover:text-red-700 p-1"><TrashIcon className="w-4 h-4"/></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><input type="text" value={link.text} onChange={e => handleSettingsChange(`header.navLinks.${id}.text`, e.target.value)} placeholder="Link Text" className={inputStyle} /><select value={link.linkType} onChange={e => { handleSettingsChange(`header.navLinks.${id}.link`, ''); handleSettingsChange(`header.navLinks.${id}.linkType`, e.target.value); }} className={inputStyle}><option value="internal">Internal Page</option><option value="external">External / Direct Link</option><option value="product">Product</option><option value="category">Category</option></select></div><div>{link.linkType === 'internal' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="e.g. home, shop" />}{link.linkType === 'external' && <input type="text" value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle} placeholder="https://..." />}{link.linkType === 'product' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}</select>}{link.linkType === 'category' && <select value={link.link} onChange={e => handleSettingsChange(`header.navLinks.${id}.link`, e.target.value)} className={inputStyle}><option value="">-- Select --</option>{categories.map(c=><option key={c.id} value={String(c.id)}>{c.name}</option>)}</select>}</div><div className="pt-2"><p className="text-sm font-medium text-gray-700">Show on themes:</p><div className="flex flex-wrap gap-x-4 gap-y-1 pt-2">{themes.map(t => (<label key={t.name} className="flex items-center space-x-1.5 text-sm"><input type="checkbox" checked={link.displayThemes?.[t.name] ?? false} onChange={e => handleThemeLinkChange(`header.navLinks.${id}`, t.name, e.target.checked)} /><span>{t.label}</span></label>))}</div></div></div>))}<button type="button" onClick={() => handleAdd('header.navLinks')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Nav Link</button></div>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Footer Settings">
+                    <div className="max-w-3xl space-y-4">
+                        <h2 className="text-xl font-bold">General Footer Content</h2>
+                        <textarea value={settings.footer.description} onChange={e => handleSettingsChange('footer.description', e.target.value)} placeholder="Footer Description" className={inputStyle} rows={2}/>
+                        <input type="text" value={settings.footer.copyrightText} onChange={e => handleSettingsChange('footer.copyrightText', e.target.value)} placeholder="Copyright Text" className={inputStyle}/>
+                        <h2 className="text-xl font-bold pt-4 border-t">Footer Columns</h2>
+                        <div className="space-y-4">{settings.footer.columns && Object.entries(settings.footer.columns).map(([id, col]: [string, any]) => (<div key={id} className="border p-4 rounded-md space-y-3"><div className="flex justify-between items-center"><input type="text" value={col.title} onChange={e => handleSettingsChange(`footer.columns.${id}.title`, e.target.value)} className={`${inputStyle} font-bold`}/><button type="button" onClick={() => handleRemove(`footer.columns.${id}`)} className="text-red-500 p-1"><TrashIcon className="w-5 h-5"/></button></div><div className="space-y-2">{col.links && Object.entries(col.links).map(([linkId, link]: [string, any])=>(<div key={linkId} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 items-center"><input type="text" value={link.text} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.text`, e.target.value)} placeholder="Link Text" className={inputStyle}/><select value={link.linkType} onChange={e => handleSettingsChange(`footer.columns.${id}.links.${linkId}.linkType`, e.target.value)} className={inputStyle}><option value="internal">Internal</option><option value="external">External</option></select><button onClick={()=>handleRemove(`footer.columns.${id}.links.${linkId}`)}><TrashIcon className="w-4 h-4 text-red-400"/></button></div>))}</div><button type="button" onClick={()=>handleAdd(`footer.columns.${id}.links`)} className="text-sm font-medium text-brand-green hover:underline"><PlusIcon className="w-4 h-4 inline-block mr-1"/>Add Link</button></div>))}<button type="button" onClick={() => handleAdd('footer.columns')} className="mt-4 text-sm font-medium text-brand-green hover:underline flex items-center gap-1"><PlusIcon className="w-4 h-4"/> Add Footer Column</button></div>
+                        <h2 className="text-xl font-bold pt-4 border-t">Social Media Links</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label className="text-sm font-medium text-gray-700">Icon Size (px)</label><input type="number" value={settings.footer.socialIconSize || 24} onChange={e => handleSettingsChange('footer.socialIconSize', Number(e.target.value))} className={inputStyle}/></div>
+                        </div>
+                         <div className="space-y-2">{settings.footer.socialLinks && Object.entries(settings.footer.socialLinks).map(([id, link]: [string, any]) => (<div key={id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-center"><select value={link.platform} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.platform`, e.target.value)} className={inputStyle}><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="twitter">Twitter</option><option value="youtube">YouTube</option><option value="pinterest">Pinterest</option><option value="linkedin">LinkedIn</option><option value="tiktok">TikTok</option><option value="whatsapp">WhatsApp</option><option value="telegram">Telegram</option></select><input type="text" value={link.url} onChange={e => handleSettingsChange(`footer.socialLinks.${id}.url`, e.target.value)} placeholder="Profile URL" className={inputStyle} /><button onClick={()=>handleRemove(`footer.socialLinks.${id}`)}><TrashIcon className="w-4 h-4 text-red-400"/></button></div>))}<button type="button" onClick={() => handleAdd('footer.socialLinks')} className="mt-2 text-sm font-medium text-brand-green hover:underline"><PlusIcon className="w-4 h-4 inline-block mr-1"/>Add Social Link</button></div>
+                    </div>
+                </CollapsibleSection>
+
+                 <CollapsibleSection title="Social Login Settings">
+                    <div className="max-w-3xl space-y-4">
+                        <p className="text-sm text-gray-600">Enable or disable social login options on the Login page.</p>
+                        <div className="space-y-3">
+                            <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={settings.socialLogin?.google?.enabled || false} onChange={e => handleSettingsChange('socialLogin.google.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
+                                <span className="font-semibold text-gray-800">Enable Google Login</span>
+                            </label>
+                            <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={settings.socialLogin?.facebook?.enabled || false} onChange={e => handleSettingsChange('socialLogin.facebook.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
+                                <span className="font-semibold text-gray-800">Enable Facebook Login</span>
+                            </label>
+                             <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={settings.socialLogin?.apple?.enabled || false} onChange={e => handleSettingsChange('socialLogin.apple.enabled', e.target.checked)} className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"/>
+                                <span className="font-semibold text-gray-800">Enable Apple Login</span>
+                            </label>
+                        </div>
+                    </div>
+                 </CollapsibleSection>
+
+                <CollapsibleSection title="Product Page Settings">
+                    <div className="max-w-3xl space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Shipping & Returns Info (HTML supported)</label>
+                            <textarea value={settings.productPage.shippingReturnsInfo} onChange={e => handleSettingsChange('productPage.shippingReturnsInfo', e.target.value)} className={inputStyle} rows={4}/>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 mt-4">"Add to Cart" Button</h3>
+                            <ActionButtonEditor path="productPage.buttons.addToCart" settings={settings.productPage.buttons?.addToCart || {}} onChange={handleSettingsChange} products={products} categories={categories} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800 mt-4">"Buy Now" Button</h3>
+                             <ActionButtonEditor path="productPage.buttons.buyNow" settings={settings.productPage.buttons?.buyNow || {}} onChange={handleSettingsChange} products={products} categories={categories} />
                         </div>
                     </div>
                 </CollapsibleSection>
@@ -1760,74 +1830,72 @@ const ThemeSettingsManager: FC = () => {
     );
 };
 
-{/* FIX: Add the main AdminDashboard component and default export to resolve the build error. */}
+// FIX: Added the main AdminDashboard component and exported it as default to resolve the import error.
+type AdminPage = 'products' | 'categories' | 'users' | 'homepage' | 'theme';
+
 const AdminDashboard: FC = () => {
-    const { userProfile, logout } = useAuth();
+    const { userProfile, loading } = useAuth();
     const { navigate } = useNavigation();
-    const [activeTab, setActiveTab] = useState('products');
+    const [page, setPage] = useState<AdminPage>('products');
 
     useEffect(() => {
-        if (!userProfile) {
-            navigate('login');
-        } else if (userProfile.role !== 'admin') {
+        if (!loading && (!userProfile || userProfile.role !== 'admin')) {
             navigate('home');
         }
-    }, [userProfile, navigate]);
-
-    if (!userProfile || userProfile.role !== 'admin') {
-        return <div className="py-40 text-center min-h-screen flex items-center justify-center bg-gray-100 text-brand-dark">Checking permissions...</div>;
+    }, [userProfile, loading, navigate]);
+    
+    if (loading || !userProfile || userProfile.role !== 'admin') {
+        return <div className="py-40 text-center min-h-screen flex items-center justify-center">Loading or unauthorized...</div>;
     }
 
-    const handleLogout = async () => {
-        try {
-            await logout();
-            navigate('home');
-        } catch (error) {
-            console.error("Logout failed", error);
+    const renderPage = () => {
+        switch (page) {
+            case 'products':
+                return <ProductsManager />;
+            case 'categories':
+                return <CategoriesManager />;
+            case 'users':
+                return <UsersManager />;
+            case 'homepage':
+                return <HomepageSettingsManager />;
+            case 'theme':
+                return <ThemeSettingsManager />;
+            default:
+                return <ProductsManager />;
         }
     };
     
-    const tabs = [
+    const navItems: { id: AdminPage, label: string }[] = [
         { id: 'products', label: 'Products' },
         { id: 'categories', label: 'Categories' },
         { id: 'users', label: 'Users' },
-        { id: 'homepage', label: 'Homepage' },
-        { id: 'theme', label: 'Theme & Site' },
+        { id: 'homepage', label: 'Homepage Settings' },
+        { id: 'theme', label: 'Theme & Site Settings' },
     ];
-
+    
     return (
-        <section className="py-12 bg-gray-100 min-h-screen text-brand-dark">
-            <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-                <header className="flex justify-between items-center mb-8 pb-4 border-b">
-                    <h1 className="text-4xl font-serif font-bold">Admin Dashboard</h1>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-gray-600">Welcome, <strong>{userProfile.name}</strong>!</span>
-                        <button onClick={() => navigate('home')} className="text-sm font-medium text-brand-green hover:underline">View Site</button>
-                        <button onClick={handleLogout} className="text-sm font-medium text-red-600 hover:underline">Logout</button>
-                    </div>
-                </header>
-
-                <div className="flex items-start">
-                    <nav className="w-48 flex-shrink-0">
-                        <ul className="space-y-2">
-                            {tabs.map(tab => (
-                                <li key={tab.id}>
-                                    <button 
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-brand-green text-white shadow-sm' : 'text-gray-600 hover:bg-gray-200'}`}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </nav>
-                    <main className="flex-1 ml-8">
-                         {activeTab === 'products' && <ProductsManager />}
-                         {activeTab === 'categories' && <CategoriesManager />}
-                         {activeTab === 'users' && <UsersManager />}
-                         {activeTab === 'homepage' && <HomepageSettingsManager />}
-                         {activeTab === 'theme' && <ThemeSettingsManager />}
+        <section className="py-24 bg-gray-100 min-h-screen">
+            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h1 className="text-4xl font-serif font-bold text-center text-brand-dark mb-12">Admin Dashboard</h1>
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <aside className="md:w-1/4">
+                        <nav className="sticky top-28 bg-white p-4 rounded-lg shadow-md">
+                            <ul className="space-y-2">
+                                {navItems.map(item => (
+                                    <li key={item.id}>
+                                        <button 
+                                            onClick={() => setPage(item.id)}
+                                            className={`w-full text-left px-4 py-2 rounded-md transition-colors text-base font-medium ${page === item.id ? 'bg-brand-green text-white shadow-sm' : 'text-gray-700 hover:bg-gray-200'}`}
+                                        >
+                                            {item.label}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </nav>
+                    </aside>
+                    <main className="flex-1 w-full">
+                        {renderPage()}
                     </main>
                 </div>
             </div>

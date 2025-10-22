@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { ContactInfo, SocialLink, FooterSettings, NavLink, FooterColumn } from '../types';
 import { 
     FacebookIcon, InstagramIcon, TwitterIcon, YoutubeIcon, PinterestIcon, LinkedinIcon,
+    TiktokIcon, WhatsappIcon, TelegramIcon,
     PhoneIcon, MailIcon, MapPinIcon, CartIcon, ArrowRightIcon
 } from './Icons';
 import LazyImage from './LazyImage';
@@ -25,6 +26,9 @@ const SocialIconComponent: React.FC<{ platform: SocialLink['platform'], classNam
         case 'youtube': return <YoutubeIcon className={className} />;
         case 'pinterest': return <PinterestIcon className={className} />;
         case 'linkedin': return <LinkedinIcon className={className} />;
+        case 'tiktok': return <TiktokIcon className={className} />;
+        case 'whatsapp': return <WhatsappIcon className={className} />;
+        case 'telegram': return <TelegramIcon className={className} />;
         default: return null;
     }
 };
